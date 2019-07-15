@@ -1,0 +1,126 @@
+﻿### Variables ###
+
+$menu = @"
+Choose an option:
+1. Install/update rust server
+2. Install Oxide/uMod
+3. Start server
+4. Wipe server
+Or any other input to exit
+"@;
+
+
+# paths and links
+$serverPath = "$PSScriptRoot/RustDS";
+
+$steamCmdSript = "$PSScriptRoot/SteamCMDInstall.ps1";
+$steamCmdPath = "$PSScriptRoot/SteamCMD/steamcmd.exe";
+$steamCmdParameters = "+login anonymous", "+force_install_dir $serverPath", "+app_update 258550 -validate", "+quit";
+
+$oxideLink = "https://umod.org/games/rust/download";
+
+#parameters
+
+
+# Administrative
+$server_port = 28015;
+$rcon_port = 28016;
+$rcon_password = 0000;
+$server_netlog = 1;
+$server_globalchat = 1;
+
+
+# General
+$server_identity = "example";
+$server_hostname = @"
+"Multiword hostname example"
+"@;
+$server_description = @"
+"Multiword description example"
+"@;
+$server_headerimage = "";
+$server_url = "";
+$server_maxplayers = 1337;
+
+$logfile = "Logs/Server.log";
+
+# Map
+$server_level = @"
+"Procedural Map"
+"@;
+
+### List of available levels ###
+# Procedural Map
+# Barren
+# HapisIsland
+# CraggyIsland
+# SavasIsland_koth
+################################
+
+
+$server_worldsize = 2000;
+$server_seed = 1942;
+$server_radiation = 1;
+$server_pve = 0;
+
+# Performance
+$server_tickrate = 60;
+# More perf parameters coming soon
+
+$basicParams = "-batchmode -nographics -logfile $logfile +rcon.web 1";
+
+# You can add parameters here
+$additionalParams = "+aimanager.nav_wait 1";
+
+$serverLaunchParams = "$basicParams +server.port $server_port +rcon.port $rcon_port +rcon.password $rcon_password +server.netlog $server_netlog +server.globalchat $server_globalchat +server.identity $server_identity +server.hostname $server_hostname +server.description $server_description +server.headerimage $server_headerimage +server.url $server_url +server.level $server_level +server.worldsize $server_worldsize +server.seed $server_seed +server.radiation $server_radiation +server.pve $server_pve +server.maxplayers $server_maxplayers +aimanager.nav_wait $aimanager_nav_wait +server.tickrate $server_tickrate $additionalParams";
+
+### Functions ###
+
+function Update-Oxide{
+[System.Net.WebClient]$webClient = New-Object System.Net.WebClient;
+Write-Host "Downloading archive...";
+$webClient.DownloadFile($oxideLink, "$serverPath/Oxide.Rust.zip");
+Write-Host "Extracting archive...";
+Expand-Archive -Path "$serverPath/Oxide.Rust.zip" -DestinationPath $serverPath -Force;
+Remove-Item "$serverPath/Oxide.Rust.zip" -Force;
+}
+
+function Update-Or-Install{
+powershell $steamCmdSript;
+Start-Process -FilePath $steamCmdPath -ArgumentList $steamCmdParameters;
+# Update-Oxide; # Uncomment this line to make script automatically update Oxide after server installation/update
+}
+
+function Start-Server{
+Start-Process -WorkingDirectory $serverPath -FilePath "cmd.exe" -ArgumentList "/C RustDedicated.exe $serverLaunchParams" -Wait;
+}
+
+#function Wipe-Server{
+
+#}
+
+# Menu
+function Main{
+Clear-Host;
+Write-Host $menu;
+$menuoption = Read-Host;
+
+if($menuoption -eq '1'){
+Update-Or-Install;
+}
+elseif($menuoption -eq '2'){
+Update-Oxide;
+}
+elseif($menuoption -eq '3'){
+Start-Server;
+}
+else{
+#[System.Environment]::Exit(0);
+exit
+}
+Main;
+}
+
+### Entry Point ###
+
+Main;
