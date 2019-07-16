@@ -10,17 +10,17 @@ Or any other input to exit
 "@;
 
 
-# paths and links
+# Paths and links (not recommended to change)
 $serverPath = "$PSScriptRoot/RustDS";
 
 $steamCmdSript = "$PSScriptRoot/SteamCMDInstall.ps1";
 $steamCmdPath = "$PSScriptRoot/SteamCMD/steamcmd.exe";
 $steamCmdParameters = "+login anonymous", "+force_install_dir $serverPath", "+app_update 258550 -validate", "+quit";
 
+# Can be changed to uMod link if you want to use it instead
 $oxideLink = "https://umod.org/games/rust/download";
 
-#parameters
-
+### Server launch parameters ###
 
 # Administrative
 $server_port = 28015;
@@ -28,7 +28,6 @@ $rcon_port = 28016;
 $rcon_password = 0000;
 $server_netlog = 1;
 $server_globalchat = 1;
-
 
 # General
 $server_identity = "example";
@@ -76,49 +75,57 @@ $serverLaunchParams = "$basicParams +server.port $server_port +rcon.port $rcon_p
 
 ### Functions ###
 
-function Update-Oxide{
-[System.Net.WebClient]$webClient = New-Object System.Net.WebClient;
-Write-Host "Downloading archive...";
-$webClient.DownloadFile($oxideLink, "$serverPath/Oxide.Rust.zip");
-Write-Host "Extracting archive...";
-Expand-Archive -Path "$serverPath/Oxide.Rust.zip" -DestinationPath $serverPath -Force;
-Remove-Item "$serverPath/Oxide.Rust.zip" -Force;
+function Update-Oxide {
+    [System.Net.WebClient]$webClient = New-Object System.Net.WebClient;
+    Write-Host "Downloading archive...";
+    $webClient.DownloadFile($oxideLink, "$serverPath/Oxide.Rust.zip");
+    Write-Host "Extracting archive...";
+    Expand-Archive -Path "$serverPath/Oxide.Rust.zip" -DestinationPath $serverPath -Force;
+    Remove-Item "$serverPath/Oxide.Rust.zip" -Force;
 }
 
-function Update-Or-Install{
-powershell $steamCmdSript;
-Start-Process -FilePath $steamCmdPath -ArgumentList $steamCmdParameters;
-# Update-Oxide; # Uncomment this line to make script automatically update Oxide after server installation/update
+function Update-Or-Install {
+    powershell $steamCmdSript;
+    Start-Process -FilePath $steamCmdPath -ArgumentList $steamCmdParameters;
+    # Update-Oxide; # Uncomment this line to make script automatically update Oxide after server installation/update
 }
 
-function Start-Server{
-Start-Process -WorkingDirectory $serverPath -FilePath "cmd.exe" -ArgumentList "/C RustDedicated.exe $serverLaunchParams" -Wait;
+function Start-Server {
+    Start-Process -WorkingDirectory $serverPath -FilePath "cmd.exe" -ArgumentList "/C RustDedicated.exe $serverLaunchParams" -Wait;
 }
 
-#function Wipe-Server{
-
-#}
+# TODO: ADD wipe feature
+function Wipe-Server {
+    Write-Host "Wiping the server data...";
+    $dataPath = "$serverPath/server/$server_identity";
+    Remove-Item -Path "$dataPath/player.blueprints.3.db";
+    Remove-Item -Path "$dataPath/player.deaths.3.db";
+    Remove-Item -Path "$dataPath/*.sav";
+    Remove-Item -Path "$dataPath/*.map"; 
+}
 
 # Menu
-function Main{
-Clear-Host;
-Write-Host $menu;
-$menuoption = Read-Host;
+function Main {
+    Clear-Host;
+    Write-Host $menu;
+    $menuoption = Read-Host;
 
-if($menuoption -eq '1'){
-Update-Or-Install;
-}
-elseif($menuoption -eq '2'){
-Update-Oxide;
-}
-elseif($menuoption -eq '3'){
-Start-Server;
-}
-else{
-#[System.Environment]::Exit(0);
-exit
-}
-Main;
+    if ($menuoption -eq '1') {
+        Update-Or-Install;
+    }
+    elseif ($menuoption -eq '2') {
+        Update-Oxide;
+    }
+    elseif ($menuoption -eq '3') {
+        Start-Server;
+    }
+    elseif ($menuoption -eq '4') {
+        Wipe-Server;
+    }
+    else {
+        exit
+    }
+    Main;
 }
 
 ### Entry Point ###
