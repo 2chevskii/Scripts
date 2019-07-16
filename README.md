@@ -14,13 +14,13 @@
 
 ## TODO
 - Rust
-    - Wipe server
-    - Choose between Oxide and uMod
+  - [x] Wipe server
+  - [ ] Choose between Oxide and uMod
 - Gmod
-    - Server installation
+  - [ ] Server installation
 - CS:GO
-    - Server installation
-    - Sourcemod installation
+  - [ ] Server installation
+  - [ ] Sourcemod installation
 
 # RUST SERVER MANAGEMENT
 - Download `SteamCMDInstallation.ps1` and `RustServer.ps1`
@@ -31,7 +31,6 @@
 ![](https://i.imgur.com/hlwvN5C.png)
 
 - If you want to install `Oxide` (and if it is not installed automatically leading the previous point)
-- Wipe function does not work yet
 - Write down any input to exit the script
 
 All the launch parameters can be changed inside the script after the `### Server launch parameters ###` tag
