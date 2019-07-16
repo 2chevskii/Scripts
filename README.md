@@ -2,7 +2,7 @@
 
 # Scripts [![license](https://img.shields.io/github/license/2chevskii/Scripts.svg?style=plastic)][license] ![](https://img.shields.io/github/last-commit/2chevskii/Scripts.svg?style=plastic)
 
-# Features
+## Features
 - Automatization of installation and administration for the game servers
 - Now supported
     - Steamcmd installation
@@ -10,7 +10,7 @@
     - Oxide installation
     - Rust server launch with configurable parameters
 
-# TODO
+## TODO
 - Rust
     - Wipe server
     - Choose between Oxide and uMod
