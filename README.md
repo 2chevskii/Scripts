@@ -21,6 +21,9 @@
 - CS:GO
   - [ ] Server installation
   - [ ] Sourcemod installation
+- DayZ
+  - [ ] Server installation
+  - [ ] Server wipe
 
 # RUST SERVER MANAGEMENT
 - Download `SteamCMDInstallation.ps1` and `RustServer.ps1`
