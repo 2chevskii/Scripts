@@ -14,7 +14,9 @@
 
 ## TODO
 - Rust
-  - [x] Wipe server
+  - [x] Server installation
+  - [x] Oxide installation
+  - [x] Server wipe
   - [ ] Choose between Oxide and uMod
 - Gmod
   - [ ] Server installation
