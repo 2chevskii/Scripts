@@ -1,7 +1,3 @@
-
-
-
-
 ### Variables ###
 
 $menu = @"
@@ -27,6 +23,10 @@ $steamCmdParameters = "+login $login $password", "+force_install_dir $serverPath
 $missionName = "dayzOffline.chernarusplus"
 $serverIndex = 1
 
+###
+
+### Functions ###
+
 function Update-Or-Install {
     powershell.exe $steamCmdSript
     Start-Process $steamCmdPath -ArgumentList $steamCmdParameters -NoNewWindow
@@ -38,30 +38,27 @@ function Start-Server {
     
     
 
-    
+
 }
 
 
 function Main {
     
-
     Write-Host $menu
-
     $opt = Read-Host
 
     switch ($opt) {
         '1' {
-Update-Or-Install
+            Update-Or-Install
         }
         '2' {
-
+Start-Server
         }
         '3' {
             Wipe-Server              
         }
         Default { exit }
     }
-    
 }
 
 
