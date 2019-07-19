@@ -29,9 +29,9 @@
   - [ ] Sourcemod installation
   - [ ] Server launch with configurable parameters
 - DayZ
-  - [ ] Server installation
+  - [x] Server installation
   - [ ] Server launch with configurable parameters
-  - [ ] Server wipe
+  - [x] Server wipe
 - Lua
   - [x] Download source
   - [x] Uncompress source
