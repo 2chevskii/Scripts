@@ -59,5 +59,6 @@ All the launch parameters can be changed inside the script after the `### Server
 - Set wanted Lua version in the script (default is `5.3.5`) ![](https://i.imgur.com/utaZJNk.png)
 - Make sure that [tdm-gcc](http://tdm-gcc.tdragon.net/download) is installed ***and registered to PATH***
 - Launch the script - *Note that if the script is located in folder you do not own (`i.e. C:\Windows\ProgramFiles\`), you will need to launch script as administrator*
+- Restart your PC to be able to access lua from CMD (PATH variable will be updated)
 
 Script will automatically download source code, compile it, cleanup folder and register lua interpreter folder as PATH variable, so you could access it from console.
