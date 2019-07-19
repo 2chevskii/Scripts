@@ -11,7 +11,6 @@ Or any other input to exit
 $workDir = $PSScriptRoot;
 $serverPath = "$workDir\dayz-ds"
 
-
 # IMPORTANT : insert correct login and password of the account WITHOUT 2FA
 $login = ""
 $password = ""
@@ -23,6 +22,15 @@ $steamCmdParameters = "+login $login $password", "+force_install_dir $serverPath
 $missionName = "dayzOffline.chernarusplus"
 $serverIndex = 1
 
+# Server launch parameters
+
+$config = "serverDZ.cfg"
+$port = 2302
+$bePath = "$serverPath\battleye"
+$cpuCount = 2
+
+$serverLaunchParameters = "-port=$port -config=$config -BEpath=$bePAth -dologs -freezecheck -cpuCount=$cpuCount"
+
 ###
 
 ### Functions ###
@@ -30,20 +38,28 @@ $serverIndex = 1
 function Update-Or-Install {
     powershell.exe $steamCmdSript
     Start-Process $steamCmdPath -ArgumentList $steamCmdParameters -NoNewWindow
+
+    CheckBEConfig
+}
+
+function CheckBEConfig {
+
+    $BEcfgPath = "$serverPath\battleye\BEServer_x64.cfg"
+    $exists = Test-Path -Path $BEcfgPath
+
+    if (!$exists) {
+        New-Item -Path $BEcfgPath
+    }
 }
 
 function Wipe-Server { Remove-Item -Path "$serverPath\mpmissions\$missionName\storage_$serverIndex" }
 
 function Start-Server {
-    
-    
-
-
+    Start-Process "$serverPath\DayZServer_x64.exe" -ArgumentList $serverLaunchParameters -Wait
 }
 
 
 function Main {
-    
     Write-Host $menu
     $opt = Read-Host
 
@@ -52,14 +68,16 @@ function Main {
             Update-Or-Install
         }
         '2' {
-Start-Server
+            Start-Server
         }
         '3' {
             Wipe-Server              
         }
         Default { exit }
     }
+    Main
 }
 
 
 Main
+
