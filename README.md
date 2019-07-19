@@ -5,12 +5,14 @@
 # Scripts [![license](https://img.shields.io/github/license/2chevskii/Scripts.svg?style=plastic)][license] ![](https://img.shields.io/github/last-commit/2chevskii/Scripts.svg?style=plastic)
 
 ## Features
+- All the scripts only support Windows and require `PowerShell 3.0+`
 - Automatization of installation and administration for the game servers
 - Now supported
     - Steamcmd installation
     - Rust server installation
     - Oxide installation
     - Rust server launch with configurable parameters
+    - Lua language installation
 
 ## TODO
 - Rust
@@ -26,6 +28,16 @@
 - DayZ
   - [ ] Server installation
   - [ ] Server wipe
+- Lua
+  - [x] Download source
+  - [x] Uncompress source
+  - [ ] Download gcc (now requires `tdm-gcc`)
+  - [x] Compile interpreter
+  - [x] Cleanup folder after installation
+  - [x] Register PATH variable
+  - [ ] Advanced exception handling
+  - [ ] Cleanup and document code
+  
 
 # RUST SERVER MANAGEMENT
 - Download `SteamCMDInstallation.ps1` and `RustServer.ps1`
@@ -40,3 +52,12 @@
 
 All the launch parameters can be changed inside the script after the `### Server launch parameters ###` tag
 ![](https://i.imgur.com/i9YvTmT.png)
+
+# Lua language installation
+- Download `Lua-Install.ps1`
+- Place script in the folder you want lua to be installed to
+- Set wanted Lua version in the script (default is `5.3.5`) ![](https://i.imgur.com/utaZJNk.png)
+- Make sure that [tdm-gcc](http://tdm-gcc.tdragon.net/download) is installed ***and registered to PATH***
+- Launch the script - *Note that if the script is located in folder you do not own (`i.e. C:\Windows\ProgramFiles\`), you will need to launch script as administrator*
+
+Script will automatically download source code, compile it, cleanup folder and register lua interpreter folder as PATH variable, so you could access it from console.
