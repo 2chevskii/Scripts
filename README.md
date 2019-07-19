@@ -18,15 +18,19 @@
 - Rust
   - [x] Server installation
   - [x] Oxide installation
+  - [x] Server launch with configurable parameters
   - [x] Server wipe
   - [ ] Choose between Oxide and uMod
 - Gmod
   - [ ] Server installation
+  - [ ] Server launch with configurable parameters
 - CS:GO
   - [ ] Server installation
   - [ ] Sourcemod installation
+  - [ ] Server launch with configurable parameters
 - DayZ
   - [ ] Server installation
+  - [ ] Server launch with configurable parameters
   - [ ] Server wipe
 - Lua
   - [x] Download source
@@ -37,7 +41,16 @@
   - [x] Register PATH variable
   - [ ] Advanced exception handling
   - [ ] Cleanup and document code
-  
+- Insurgency
+  - [ ] Server installation
+  - [ ] Server launch with configurable parameters
+- Insurgency: Sandstorm
+  - [ ] Server installation
+  - [ ] Server launch with configurable parameters
+- Alt:V MP
+  - [ ] Server installation with configurable packages
+  - [ ] Server configuration
+  - [ ] Server launch  
 
 # RUST SERVER MANAGEMENT
 - Download `SteamCMDInstallation.ps1` and `RustServer.ps1`
