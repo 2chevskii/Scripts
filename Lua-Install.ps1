@@ -179,7 +179,7 @@ function Set-Env-Path {
 
     try {
         $value = Get-ItemProperty -Path HKCU:\Environment -Name Path
-        $newpath = $value.Path += ";$workDir"
+        $newpath = $value.Path += ";$binPath"
         Set-ItemProperty -Path HKCU:\Environment -Name Path -Value $newpath
     }
     catch {
