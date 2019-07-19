@@ -10,7 +10,7 @@ Or any other input to exit
 "@;
 
 
-# Paths and links (not recommended to change)
+# Paths and links (not recommended to change unless you know, what you are doing exactly)
 $serverPath = "$PSScriptRoot/RustDS";
 
 $steamCmdSript = "$PSScriptRoot/SteamCMDInstall.ps1";
