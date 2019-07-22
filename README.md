@@ -21,6 +21,7 @@
   - [x] Server launch with configurable parameters
   - [x] Server wipe
   - [x] ~~Choose between Oxide and uMod~~
+  - [ ] Catch ***all*** exceptions
 - Gmod
   - [ ] Server installation
   - [ ] Server launch with configurable parameters
@@ -32,6 +33,7 @@
   - [x] Server installation
   - [ ] Server launch with configurable parameters
   - [x] Server wipe
+  - [ ] Catch ***all*** exceptions
 - Lua
   - [x] Download source
   - [x] Uncompress source
@@ -39,7 +41,7 @@
   - [x] Compile interpreter
   - [x] Cleanup folder after installation
   - [x] Register PATH variable
-  - [ ] Advanced exception handling
+  - [ ] Catch ***all*** exceptions
   - [ ] Cleanup and document code
 - Insurgency
   - [ ] Server installation
