@@ -4,6 +4,8 @@
 
 # Scripts [![license](https://img.shields.io/github/license/2chevskii/Scripts.svg?style=plastic)][license] ![](https://img.shields.io/github/last-commit/2chevskii/Scripts.svg?style=plastic)
 
+![](https://i.imgur.com/hmQ6Q8e.png)
+
 ## Features
 - All the scripts only support Windows and require `PowerShell 3.0+`
 - Automatization of installation and administration for the game servers
@@ -54,7 +56,7 @@
 
 # RUST SERVER MANAGEMENT
 - Download `SteamCMDInstallation.ps1` and `RustServer.ps1`
-- Place them into root folder (In this folder all the additional folder will be created, like `rustds` and `SteamCMD`), `SteamCMD` folder, as well as `SteamCMDInstallation.ps1` script can be used later for other servers
+- Place them into root folder (In this folder all the additional folder will be created, like `rust-ds` and `SteamCMD`), `SteamCMD` folder, as well as `SteamCMDInstallation.ps1` script can be used later for other servers
 - Launch the `RustServer.ps1` script and choose `Install/update server` option
 
 **You can uncomment line in the `RustServer.ps1` script to make `Oxide` installation automatical**
@@ -66,7 +68,7 @@
 All the launch parameters can be changed inside the script after the `### Server launch parameters ###` tag
 ![](https://i.imgur.com/i9YvTmT.png)
 
-# Lua language installation
+# LUA LANGUAGE INSTALLATION
 - Download `Lua-Install.ps1`
 - Place script in the folder you want lua to be installed to
 - Set wanted Lua version in the script (default is `5.3.5`) ![](https://i.imgur.com/utaZJNk.png)
@@ -75,3 +77,9 @@ All the launch parameters can be changed inside the script after the `### Server
 - Restart your PC to be able to access lua from CMD (PATH variable will be updated)
 
 Script will automatically download source code, compile it, cleanup folder and register lua interpreter folder as PATH variable, so you could access it from console.
+
+# DAYZ SERVER MANAGEMENT
+- Download `DayZServer.ps1` and `SteamCMDInstall.ps1`
+- Place them into root folder (In this folder all the additional folder will be created, like `dayz-ds` and `SteamCMD`), `SteamCMD` folder, as well as `SteamCMDInstallation.ps1` script can be used later for other servers
+- Launch the `DayZServer.ps1` script and choose the option you need
+- Additional launch parameters may be configured in script itself ![](https://i.imgur.com/elaAsDG.png)
