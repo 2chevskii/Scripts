@@ -61,7 +61,6 @@ $server_level = @"
 # SavasIsland_koth
 ################################
 
-
 $server_worldsize = 2000
 $server_seed = 1942
 $server_radiation = 1
@@ -86,8 +85,22 @@ function Update-Oxide {
     $client.DownloadFile($oxide_url, "$server_dir/Oxide.Rust.zip")
 
     Write-Host "Extracting archive..."
-    Expand-Archive -Path "$server_dir/Oxide.Rust.zip" -DestinationPath $server_dir -Force
-    Remove-Item "$server_dir/Oxide.Rust.zip" -Force
+    try {
+        Expand-Archive -Path "$server_dir/Oxide.Rust.zip" -DestinationPath $server_dir -Force -ErrorAction Stop
+        Write-Host "Oxide update completed."
+    }
+    catch {
+        Write-Host "Could not extract Oxide properly, try running script as administrator!" -ForegroundColor ([System.ConsoleColor]::Red)
+    }
+    try {
+        Remove-Item -Path "$server_dir/Oxide.Rust.zip" -ErrorAction Stop
+    }
+    catch {
+        Write-Host "Could not delete the temporary archive file." -ForegroundColor ([System.ConsoleColor]::Yellow)
+    }
+
+    
+    Start-Sleep -Seconds 3
 }
 
 function Update-Server {
@@ -97,8 +110,8 @@ function Update-Server {
 }
 
 function Start-Server {
-    #Start-Process -WorkingDirectory $server_dir -FilePath "cmd.exe" -ArgumentList "/C RustDedicated.exe $serverLaunchParams" -Wait
-    Start-Process -FilePath "$server_dir\RustDedicated.exe" -ArgumentList $serverLaunchParams -NoNewWindow -Wait | Out-Host
+    Start-Process -WorkingDirectory $server_dir -FilePath "cmd.exe" -ArgumentList "/C RustDedicated.exe $serverLaunchParams" -Wait 
+    #Start-Process -FilePath "$server_dir\RustDedicated.exe" -ArgumentList $serverLaunchParams -Wait | Out-Host
 }
 
 function Wipe-Server {
