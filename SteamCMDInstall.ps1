@@ -1,47 +1,36 @@
-﻿# Define type for unpacking zips
-Add-Type -AssemblyName System.IO.Compression.FileSystem
-
-# Define path variable
-$steamCmdDir = "$PSScriptRoot/SteamCMD"
+﻿
+# Define path variables
+$steamcmd_dir = "$PSScriptRoot/SteamCMD"
+$steamcmd_url = "https://steamcdn-a.akamaihd.net/client/installer/steamcmd.zip"
 
 ### Functions ###
 
-function Download-Archive {
+function Install-SteamCMD {
+    
+    Write-Host "Installing steam commandline..."
+        
     Write-Host "Downloading archive..."
     $client = New-Object System.Net.WebClient
-    $cmdUrl = "https://steamcdn-a.akamaihd.net/client/installer/steamcmd.zip"
-    $client.DownloadFile($cmdUrl, "$steamCmdDir/steamcmd.zip")
-}
+    $client.DownloadFile($steamcmd_url, "$steamcmd_dir/steamcmd.zip")
 
-function Unpack-Archive {
     Write-Host "Unpacking archive..."
-    [System.IO.Compression.ZipFile]::ExtractToDirectory("$steamCmdDir/steamcmd.zip", $steamCmdDir)
-}
+    Expand-Archive -Path "$steamcmd_dir/steamcmd.zip" -DestinationPath $steamcmd_dir
 
-function Delete-Archive {
     Write-Host "Deleting archive..."
-    Remove-Item -Path "$steamCmdDir/steamcmd.zip"
+    Remove-Item -Path "$steamcmd_dir/steamcmd.zip"
 }
 
-function Check-Path {
-    $exists = Test-Path $steamCmdDir
+function Validate-Installation {
+
+    $exists = Test-Path $steamcmd_dir
     if (!$exists) {
-        New-Item -ItemType Directory -Path $steamCmdDir
-        Write-Host "Installing steam commandline..."
-        Download-Archive
-        Unpack-Archive
-        Delete-Archive
+        New-Item -ItemType Directory -Path $steamcmd_dir
+        Install-SteamCMD
     }
     else {
         Write-Host "SteamCMD is already installed."
     }
-}
 
-function Check-Or-Install {
-    Write-Host "Checking steam commandline installation..."
-    Check-Path
-    Write-Host "Check completed."
-    Start-Sleep -Seconds 3
     exit
 }
 
@@ -49,4 +38,4 @@ function Check-Or-Install {
 
 ### Entry point ###
 
-Check-Or-Install
+Validate-Installation

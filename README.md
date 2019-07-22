@@ -20,7 +20,7 @@
   - [x] Oxide installation
   - [x] Server launch with configurable parameters
   - [x] Server wipe
-  - [ ] Choose between Oxide and uMod
+  - [x] ~~Choose between Oxide and uMod~~
 - Gmod
   - [ ] Server installation
   - [ ] Server launch with configurable parameters
