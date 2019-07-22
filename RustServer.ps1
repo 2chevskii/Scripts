@@ -6,19 +6,24 @@ Choose an option:
 2. Install Oxide/uMod
 3. Start server
 4. Wipe server
-Or any other input to exit
+5. Exit
 "@
 
+$confirmation = @"
+Are you sure?
+1. Yes
+2. No
+"@
 
 # Paths and links (not recommended to change unless you know, what you are doing exactly)
-$serverPath = "$PSScriptRoot/RustDS"
+$server_dir = "$PSScriptRoot/rust-ds"
 
-$steamCmdSript = "$PSScriptRoot/SteamCMDInstall.ps1"
-$steamCmdPath = "$PSScriptRoot/SteamCMD/steamcmd.exe"
-$steamCmdParameters = "+login anonymous", "+force_install_dir $serverPath", "+app_update 258550 -validate", "+quit"
+$steamdcmd_script_path = "$PSScriptRoot/SteamCMDInstall.ps1"
+$steamcmd_path = "$PSScriptRoot/SteamCMD/steamcmd.exe"
+$steamcmd_launch_args = "+login anonymous", "+force_install_dir $server_dir", "+app_update 258550 -validate", "+quit"
 
 # Can be changed to uMod link if you want to use it instead
-$oxideLink = "https://umod.org/games/rust/download"
+$oxide_url = "https://umod.org/games/rust/download"
 
 ### Server launch parameters ###
 
@@ -41,7 +46,7 @@ $server_headerimage = ""
 $server_url = ""
 $server_maxplayers = 1337
 
-$logfile = "Logs/Server.log"
+$logfile_path = "Logs/Server.log"
 
 # Map
 $server_level = @"
@@ -66,7 +71,7 @@ $server_pve = 0
 $server_tickrate = 60
 # More perf parameters coming soon
 
-$basicParams = "-batchmode -nographics -logfile $logfile +rcon.web 1"
+$basicParams = "-batchmode -nographics -logfile $logfile_path +rcon.web 1"
 
 # You can add parameters here
 $additionalParams = "+aimanager.nav_wait 1"
@@ -76,44 +81,89 @@ $serverLaunchParams = "$basicParams +server.port $server_port +rcon.port $rcon_p
 ### Functions ###
 
 function Update-Oxide {
-    [System.Net.WebClient]$webClient = New-Object System.Net.WebClient
+    $client = New-Object System.Net.WebClient
     Write-Host "Downloading archive..."
-    $webClient.DownloadFile($oxideLink, "$serverPath/Oxide.Rust.zip")
+    $client.DownloadFile($oxide_url, "$server_dir/Oxide.Rust.zip")
+
     Write-Host "Extracting archive..."
-    Expand-Archive -Path "$serverPath/Oxide.Rust.zip" -DestinationPath $serverPath -Force
-    Remove-Item "$serverPath/Oxide.Rust.zip" -Force
+    Expand-Archive -Path "$server_dir/Oxide.Rust.zip" -DestinationPath $server_dir -Force
+    Remove-Item "$server_dir/Oxide.Rust.zip" -Force
 }
 
-function Update-Or-Install {
-    powershell $steamCmdSript
-    Start-Process -FilePath $steamCmdPath -ArgumentList $steamCmdParameters -NoNewWindow
-    # Update-Oxide; # Uncomment this line to make script automatically update Oxide after server installation/update
+function Update-Server {
+    powershell.exe $steamdcmd_script_path
+    Start-Process -FilePath $steamcmd_path -ArgumentList $steamcmd_launch_args -NoNewWindow -Wait
+    # Update-Oxide # Uncomment this line to make script automatically update Oxide after server installation/update
 }
 
 function Start-Server {
-    #Start-Process -WorkingDirectory $serverPath -FilePath "cmd.exe" -ArgumentList "/C RustDedicated.exe $serverLaunchParams" -Wait
-    Start-Process -FilePath "$serverPath\RustDedicated.exe" -ArgumentList $serverLaunchParams -NoNewWindow
+    #Start-Process -WorkingDirectory $server_dir -FilePath "cmd.exe" -ArgumentList "/C RustDedicated.exe $serverLaunchParams" -Wait
+    Start-Process -FilePath "$server_dir\RustDedicated.exe" -ArgumentList $serverLaunchParams -NoNewWindow -Wait | Out-Host
 }
 
-# TODO: ADD wipe feature
 function Wipe-Server {
-    Write-Host "Wiping the server data..."
-    $dataPath = "$serverPath/server/$server_identity"
-    Remove-Item -Path "$dataPath/player.blueprints.3.db"
-    Remove-Item -Path "$dataPath/player.deaths.3.db"
-    Remove-Item -Path "$dataPath/*.sav"
-    Remove-Item -Path "$dataPath/*.map"
+
+    Write-Host -Object $confirmation
+    
+    switch (Listen-Key) {
+        '1' { 
+            Write-Host "Wiping the server data..."
+            Start-Sleep -Milliseconds 500
+            $data_path = "$server_dir/server/$server_identity"
+
+            $bp_path = "$data_path/player.blueprints.3.db"
+            $deaths_path = "$data_path/player.deaths.3.db"
+            $sav_path = "$data_path/*.sav"
+            $map_path = "$data_path/*.map"
+
+            try {
+                Remove-Item -Path $bp_path -ErrorAction Stop
+                Write-Host -Object "Deleting blueprints..."
+            }
+            catch { Write-Host -Object "Blueprints data empty..." }
+
+            try {
+                Remove-Item -Path $deaths_path -ErrorAction Stop
+                Write-Host -Object "Deleting deaths..."
+            }
+            catch { Write-Host -Object "Deaths data empty..." }
+
+            try {
+                Remove-Item -Path $sav_path -ErrorAction Stop
+                Write-Host -Object "Deleting saves..."
+            }
+            catch { Write-Host -Object "Saves empty..." }
+
+            try {
+                Remove-Item -Path $map_path -ErrorAction Stop
+                Write-Host -Object "Deleting map caches..."
+            }
+            catch { Write-Host -Object "Map caches empty..." }
+
+
+            Start-Sleep -Seconds 3
+        }
+        Default {
+            Write-Host "Aborted..."
+            Start-Sleep -Seconds 2
+        }
+    }
+}
+
+function Listen-Key {
+    [System.Management.Automation.Host.KeyInfo]$key = $Host.UI.RawUI.ReadKey('NoEcho, IncludeKeyDown')
+    return $key.Character
 }
 
 # Menu
 function Main {
     Clear-Host
-    Write-Host $menu
-    $menuoption = Read-Host
 
-    switch ($menuoption) {
+    Write-Host $menu
+
+    switch (Listen-Key) {
         '1' {
-            Update-Or-Install
+            Update-Server
         }
         '2' {
             Update-Oxide
@@ -124,11 +174,19 @@ function Main {
         '4' {
             Wipe-Server
         }
-        Default { exit }
+        '5' {
+            Exit
+        }
+        Default {
+            Write-Host -Object "There is no such option, read the menu!"
+            Start-Sleep -Seconds 2
+        }
     }
+    
     Main
 }
 
 ### Entry Point ###
 
 Main
+

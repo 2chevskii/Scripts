@@ -1,12 +1,13 @@
-﻿
-# Define path variables
+﻿### Fields ###
+
 $steamcmd_dir = "$PSScriptRoot/SteamCMD"
 $steamcmd_url = "https://steamcdn-a.akamaihd.net/client/installer/steamcmd.zip"
+
+###
 
 ### Functions ###
 
 function Install-SteamCMD {
-    
     Write-Host "Installing steam commandline..."
         
     Write-Host "Downloading archive..."
@@ -21,9 +22,7 @@ function Install-SteamCMD {
 }
 
 function Validate-Installation {
-
-    $exists = Test-Path $steamcmd_dir
-    if (!$exists) {
+    if (!(Test-Path -Path $steamcmd_dir)) {
         New-Item -ItemType Directory -Path $steamcmd_dir
         Install-SteamCMD
     }
@@ -39,3 +38,5 @@ function Validate-Installation {
 ### Entry point ###
 
 Validate-Installation
+
+###
