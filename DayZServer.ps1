@@ -17,8 +17,8 @@ Are you sure?
 $server_dir = "$PSScriptRoot\dayz-ds"
 
 # IMPORTANT : insert correct login and password for an account WITHOUT 2FA
-$login = "wildgamesyt"
-$password = "WildRoman1009"
+$login = ""
+$password = ""
 
 $steamCmdSript = "$PSScriptRoot/SteamCMDInstall.ps1";
 $steamCmdPath = "$PSScriptRoot/SteamCMD/steamcmd.exe";
