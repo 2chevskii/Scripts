@@ -31,7 +31,7 @@
   - [ ] Server launch with configurable parameters
 - DayZ
   - [x] Server installation
-  - [ ] Server launch with configurable parameters
+  - [X] Server launch with configurable parameters
   - [x] Server wipe
   - [ ] Catch ***all*** exceptions
 - Lua
