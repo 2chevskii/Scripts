@@ -1,4 +1,6 @@
-﻿# Absolute path to the directory where steamcmd.exe must be located
+﻿#region Declarations
+
+# Absolute path to the directory where steamcmd.exe must be located
 param([string]$targetDir = "$PSScriptRoot/SteamCMD") 
 
 # URL for steamcmd distr download
@@ -25,6 +27,10 @@ function Install-SteamCMD {
     }
 }
 
+#endregion
+
+#region Script
+
 # Check if target directory contains needed binary already
 if (Test-Path -Path "$targetDir/steamcmd.exe") {
     Write-Host "SteamCMD is already installed."
@@ -45,3 +51,5 @@ else {
     Install-SteamCMD
 }
 exit
+
+#endregion
