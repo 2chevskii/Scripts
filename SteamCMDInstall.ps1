@@ -1,42 +1,47 @@
-﻿### Fields ###
+﻿# Absolute path to the directory where steamcmd.exe must be located
+param([string]$targetDir = "$PSScriptRoot/SteamCMD") 
 
-$steamcmd_dir = "$PSScriptRoot/SteamCMD"
+# URL for steamcmd distr download
 $steamcmd_url = "https://steamcdn-a.akamaihd.net/client/installer/steamcmd.zip"
 
-###
-
-### Functions ###
-
 function Install-SteamCMD {
-    Write-Host "Installing steam commandline..."
-        
-    Write-Host "Downloading archive..."
-    $client = New-Object System.Net.WebClient
-    $client.DownloadFile($steamcmd_url, "$steamcmd_dir/steamcmd.zip")
+    Write-Host "Installing steam commandline tool..."
 
-    Write-Host "Unpacking archive..."
-    Expand-Archive -Path "$steamcmd_dir/steamcmd.zip" -DestinationPath $steamcmd_dir
+    try {
+        Write-Host "Downloading archive..."
+        $client = New-Object System.Net.WebClient
+        $client.DownloadFile($steamcmd_url, "$targetDir/steamcmd.zip")
 
-    Write-Host "Deleting archive..."
-    Remove-Item -Path "$steamcmd_dir/steamcmd.zip"
+        Write-Host "Unpacking archive..."
+        Expand-Archive -Path "$targetDir/steamcmd.zip" -DestinationPath $targetDir -ErrorAction Stop
+
+        Write-Host "Deleting archive..."
+        Remove-Item -Path "$targetDir/steamcmd.zip" -ErrorAction Stop
+    }
+    catch {
+        Write-Host -Object "Exception occured: $_"
+        Read-Host
+        exit
+    }
 }
 
-function Validate-Installation {
-    if (!(Test-Path -Path $steamcmd_dir)) {
-        New-Item -ItemType Directory -Path $steamcmd_dir
-        Install-SteamCMD
-    }
-    else {
-        Write-Host "SteamCMD is already installed."
-    }
-
-    exit
+# Check if target directory contains needed binary already
+if (Test-Path -Path "$targetDir/steamcmd.exe") {
+    Write-Host "SteamCMD is already installed."
 }
-
-###
-
-### Entry point ###
-
-Validate-Installation
-
-###
+else {
+    # Ensure that the target directory exists
+    if (!(Test-Path -Path "$targetDir")) {
+        try {
+            New-Item -Path $targetDir -ItemType "Directory" -ErrorAction Stop
+        }
+        catch {
+            Write-Host -Object "Exception occured: $_"
+            Read-Host
+            exit
+        }
+    }
+    # Install steamcmd
+    Install-SteamCMD
+}
+exit
