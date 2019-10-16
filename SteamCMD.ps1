@@ -1,14 +1,19 @@
 param([string]$installationpath = "$PSScriptRoot/SteamCMD", [string]$command = $null)
 
+# Path to the steamCMD binary
 $exepath = "$installationpath/steamcmd.exe"
+
+# Path where the downloaded archive will be temporary located
 $archpath = "$installationpath/steamcmd.zip"
 
+# Executes given commands in steamCMD while it is installed
 function RunCommand {
     if ($command -ne $null) {
         Start-Process -FilePath $exepath -ArgumentList $command -NoNewWindow -Wait
     }
 }
 
+# Attempts to install steamCMD if it is not installed yet
 function Install {
 
     if ((Test-Path -Path $exepath) -eq $true) {
@@ -17,7 +22,6 @@ function Install {
     else {
         Write-Host "Installing steam commandline tool..."
         
-
         try {
             if ((Test-Path -Path $installationpath) -ne $true) {
                 Write-Host "Creating installation directory..."
