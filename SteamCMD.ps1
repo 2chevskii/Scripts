@@ -6,15 +6,20 @@ $exepath = "$installationpath/steamcmd.exe"
 # Path where the downloaded archive will be temporary located
 $archpath = "$installationpath/steamcmd.zip"
 
+# Download link for steamcmd tool
+$steamcmd_url = "https://steamcdn-a.akamaihd.net/client/installer/steamcmd.zip"
+
 # Executes given commands in steamCMD while it is installed
 function RunCommand {
-    if ($command -ne $null) {
-        Start-Process -FilePath $exepath -ArgumentList $command -NoNewWindow -Wait
+    if ($null -ne $command -and $command.Length -gt 0) {
+        Start-Process -FilePath $exepath -ArgumentList $command -WorkingDirectory $PSScriptRoot -NoNewWindow -Wait
     }
 }
 
 # Attempts to install steamCMD if it is not installed yet
 function Install {
+
+    Write-Host "Received params:`nPath: $installationpath`nCommand: $command"
 
     if ((Test-Path -Path $exepath) -eq $true) {
         Write-Host "SteamCMD is already installed"
@@ -47,7 +52,6 @@ function Install {
         }
     }
 }
-
 
 Install
 
