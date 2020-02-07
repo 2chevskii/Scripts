@@ -11,6 +11,16 @@ param (
     [switch]$Validate
 )
 
+$script_version = @{
+    major = 2
+    minor = 0
+    patch = 1
+}
+
+$script_version_string = "v$($script_version.major).$($script_version.minor).$($script_version.patch)"
+
+Write-Host "SteamCMD handler $script_version_string by 2CHEVSKII "
+
 $root = $PSScriptRoot
 
 $steamcmd_dl_win = 'https://steamcdn-a.akamaihd.net/client/installer/steamcmd.zip'
