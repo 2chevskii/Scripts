@@ -7,7 +7,9 @@ param (
     [switch]$Force,
     [Alias('c')][switch]$ClearManaged,
     [Alias('u')][switch]$FullUpdate,
-    [switch]$NoConfig
+    [switch]$ServerCFG,
+    [string]$SteamCMDPath,
+    [switch]$SteamCMDRepo
 )
 
 $oxide_dl = @{
@@ -18,6 +20,7 @@ $oxide_dl = @{
 
 $root = $PSScriptRoot
 $temp = "$root/temp"
+$cfg_path = "$root/rustserver-config.json"
 
 $script_version = @{
     major = 2
@@ -27,16 +30,48 @@ $script_version = @{
 
 $script_version_formatted = "v$($script_version.major).$($script_version.minor).$($script_version.patch)"
 
+$source_repository = '<placeholder>'
+
 Write-Host "RustServer handler $script_version_formatted by " -NoNewline
 Write-Host '2CHEVSKII' -ForegroundColor Magenta
 Write-Host 'Licensed under MIT License: ' -NoNewline
 Write-Host 'https://www.tldrlegal.com/l/mit' -ForegroundColor Blue
 Write-Host 'Source repository: ' -NoNewline
-Write-Host '<placeholder>' -ForegroundColor DarkBlue
+Write-Host $source_repository -ForegroundColor DarkBlue
 
 if (!$ServerPath) {
-    $ServerPath = "$root/rust-ds"
+    $ServerPath = "./rust-ds"
 }
+
+$cfg_default = @{
+    'server path' = $ServerPath
+    commandline   = @{
+        hostname    = 'My Rust Server'
+        maxplayers  = 200
+        description = "Created with 2CHEVSKII's RustServer handler script -> $source_repository"
+        ip          = ''
+        port        = 28015
+        map         = 'Procedural Map'
+        worldsize   = 4000
+        seed        = 506772698683757373
+        logfile     = 'logs/server.log'
+        pve         = $false
+        radiation   = $true
+        globalchat  = $true
+        url         = $source_repository
+        headerimage = 'https://i.imgur.com/hmQ6Q8e.png'
+        rcon        = @{
+            port     = 28016
+            password = '0000'
+        }
+    }
+    'server.cfg'  = @(
+        'aimanager.nav_wait 1',
+        'fps.limit 90'
+    )
+}
+
+$cfg
 
 function Update-Server {
     param (
@@ -173,3 +208,21 @@ function Get-OxideVersion {
 
     return $version
 }
+
+function Get-Config {
+    $cfg_local
+
+    try {
+        if (!(Test-Path -Path $cfg_path)) {
+            throw 'NOT_FOUND'
+        }
+
+        $cfg_local = Get-Content -Path $cfg_path -Raw | ConvertFrom-Json -AsHashtable
+    }
+    catch {
+        $cfg_local = $cfg_default
+    }
+
+    return $cfg_local
+}
+
