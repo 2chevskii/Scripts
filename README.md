@@ -1,84 +1,30 @@
-[license]: https://tldrlegal.com/license/gnu-general-public-license-v3-(gpl-3)#fulltext
+## SteamCMD.ps1 - steamcmd handling script
+Designed to minimize the pain of steamcmd usage for app installation and updates.
 
+### **WARNING**
+This script was only tested on Windows and Linux local installation (no -RepoInstall switch), it might behave different across multiple OS distros.
 
-![](https://i.imgur.com/hmQ6Q8e.png)
+### Script already contains shebang line -> `#!/usr/bin/pwsh`, so you can set it as executable and call from outside of powershell interface
 
-# Scripts [![license](https://img.shields.io/github/license/2chevskii/Scripts.svg?style=plastic)][license] ![](https://img.shields.io/github/last-commit/2chevskii/Scripts.svg?style=plastic)
+Script will automatically check if steamcmd is installed in specified path (default is ./steamcmd, can be overriden by -SCMDPath switch with a value), or as a command (if -RepoInstall is specified)
+If steamcmd is not present, it will be installed automatically into chosen directory or from the repository.
 
-## Features
-- All the scripts only support Windows and require `PowerShell 3.0+`
-- Automatization of installation and administration for the game servers
-- Now supported
-    - Steamcmd installation
-    - Rust server installation
-    - Oxide installation
-    - Rust server launch with configurable parameters
-    - Lua language installation
+### General usage
 
-## TODO
-- Rust
-  - [x] Server installation
-  - [x] Oxide installation
-  - [x] Server launch with configurable parameters
-  - [x] Server wipe
-  - [x] ~~Choose between Oxide and uMod~~
-- Gmod
-  - [ ] Server installation
-  - [ ] Server launch with configurable parameters
-- CS:GO
-  - [ ] Server installation
-  - [ ] Sourcemod installation
-  - [ ] Server launch with configurable parameters
-- DayZ
-  - [x] Server installation
-  - [X] Server launch with configurable parameters
-  - [x] Server wipe
-- Lua
-  - [x] Download source
-  - [x] Uncompress source
-  - [ ] Download gcc (now requires `tdm-gcc`)
-  - [x] Compile interpreter
-  - [x] Cleanup folder after installation
-  - [x] Register PATH variable
-  - [ ] Advanced exception handling
-  - [ ] Cleanup and document code
-- Insurgency
-  - [ ] Server installation
-  - [ ] Server launch with configurable parameters
-- Insurgency: Sandstorm
-  - [ ] Server installation
-  - [ ] Server launch with configurable parameters
-- Alt:V MP
-  - [ ] Server installation with configurable packages
-  - [ ] Server configuration
-  - [ ] Server launch  
+*Optional values are located in '[]'*
 
-# RUST SERVER MANAGEMENT
-- Download `SteamCMDInstallation.ps1` and `RustServer.ps1`
-- Place them into root folder (In this folder all the additional folder will be created, like `rust-ds` and `SteamCMD`), `SteamCMD` folder, as well as `SteamCMDInstallation.ps1` script can be used later for other servers
-- Launch the `RustServer.ps1` script and choose `Install/update server` option
+- `SteamCMD.ps1 [-SCMDPath ... | -RepoInstall]` :: Will only install the steamcmd to the -SCMDPath option value (default is './steamcmd'), or from the repository (linux only)
+- `SteamCMD.ps1 [-AppID] <appid> [[-AppDir] <appdir>] [-Validate]` :: Install app \<appid> into \<appdir> (default is 'app-\<appid>'), also can validate installation.
 
-**You can uncomment line in the `RustServer.ps1` script to make `Oxide` installation automatical**
-![](https://i.imgur.com/hlwvN5C.png)
+### Parameter list
 
-- If you want to install `Oxide` (and if it is not installed automatically leading the previous point)
-- Write down any input to exit the script
-
-All the launch parameters can be changed inside the script after the `### Server launch parameters ###` tag
-![](https://i.imgur.com/i9YvTmT.png)
-
-# LUA LANGUAGE INSTALLATION
-- Download `Lua-Install.ps1`
-- Place script in the folder you want lua to be installed to
-- Set wanted Lua version in the script (default is `5.3.5`) ![](https://i.imgur.com/utaZJNk.png)
-- Make sure that [tdm-gcc](http://tdm-gcc.tdragon.net/download) is installed ***and registered to PATH***
-- Launch the script - *Note that if the script is located in folder you do not own (`i.e. C:\Windows\ProgramFiles\`), you will need to launch script as administrator*
-- Restart your PC to be able to access lua from CMD (PATH variable will be updated)
-
-Script will automatically download source code, compile it, cleanup folder and register lua interpreter folder as PATH variable, so you could access it from console.
-
-# DAYZ SERVER MANAGEMENT
-- Download `DayZServer.ps1` and `SteamCMDInstall.ps1`
-- Place them into root folder (In this folder all the additional folder will be created, like `dayz-ds` and `SteamCMD`), `SteamCMD` folder, as well as `SteamCMDInstallation.ps1` script can be used later for other servers
-- Launch the `DayZServer.ps1` script and choose the option you need
-- Additional launch parameters may be configured in script itself ![](https://i.imgur.com/elaAsDG.png)
+- `-AppID [int]` (positional 1) :: application to download
+- `-AppDir [string]` (positional 2) :: absolute or relative path for app installation :: default is './app-\<appid>'
+- `-Branch [string]` :: branch name to download
+- `-BranchPass [string]` :: password to the specified branch
+- `-Login [string]` :: steam login for apps requiring it :: default is 'anonymous'
+- `-Password [string]` :: steam password
+- `-SteamGuardCode [string]` :: steam 2FA code
+- `-SCMDPath [string]` :: custom path to steamcmd directory :: default is './steamcmd'
+- `-RepoInstall [switch]` :: perform search and installation of steamcmd from the repository instead of local folder
+- `-Validate [switch]` :: add 'validate' to the steamcmd call
