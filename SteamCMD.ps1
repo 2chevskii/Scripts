@@ -19,7 +19,12 @@ $script_version = @{
 
 $script_version_string = "v$($script_version.major).$($script_version.minor).$($script_version.patch)"
 
-Write-Host "SteamCMD handler $script_version_string by 2CHEVSKII "
+Write-Host "SteamCMD handler $script_version_string by " -NoNewline
+Write-Host '2CHEVSKII' -ForegroundColor Magenta
+Write-Host 'Licensed under MIT License: ' -NoNewline
+Write-Host 'https://www.tldrlegal.com/l/mit' -ForegroundColor Blue
+Write-Host 'Source repository: ' -NoNewline
+Write-Host '<placeholder>' -ForegroundColor DarkBlue
 
 $root = $PSScriptRoot
 
@@ -254,7 +259,7 @@ if ($IsWindows -or $IsMacOS) {
         Write-Host 'success' -ForegroundColor Green
     }
     else {
-        Write-Host 'Could not install SteamCMD!' -ForegroundColor Red
+        Write-Host 'fail!' -ForegroundColor Red
         exit 1
     }
 }
