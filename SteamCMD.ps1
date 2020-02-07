@@ -26,6 +26,11 @@ Write-Host 'https://www.tldrlegal.com/l/mit' -ForegroundColor Blue
 Write-Host 'Source repository: ' -NoNewline
 Write-Host '<placeholder>' -ForegroundColor DarkBlue
 
+if ((Get-Host).Version.Major -lt 6) {
+    Write-Error 'This script is only intended to execute inside PowerShell Core!'
+    exit 1
+}
+
 $root = $PSScriptRoot
 
 $steamcmd_dl_win = 'https://steamcdn-a.akamaihd.net/client/installer/steamcmd.zip'
@@ -251,17 +256,22 @@ elseif (!$AppDir -and $AppID) {
     $AppDir = "$root/app-$AppID"
 }
 
-if ($IsWindows -or $IsMacOS) {
-    Write-Host 'Checking installation of steamcmd...' -NoNewline
-    $success = Install-Manual -path $SCMDPath
+Write-Host 'Checking installation of steamcmd...' -NoNewline
+$success
 
-    if ($success) {
-        Write-Host 'success' -ForegroundColor Green
-    }
-    else {
-        Write-Host 'fail!' -ForegroundColor Red
-        exit 1
-    }
+if ($IsWindows -or $IsMacOS -or !$repoInsta) {
+    $success = Install-Manual -path $SCMDPath
+}
+else {
+    $success = Install-Repository
+}
+
+if ($success) {
+    Write-Host 'success' -ForegroundColor Green
+}
+else {
+    Write-Host 'fail!' -ForegroundColor Red
+    exit 1
 }
 
 if ($AppID) {
