@@ -256,17 +256,22 @@ elseif (!$AppDir -and $AppID) {
     $AppDir = "$root/app-$AppID"
 }
 
-if ($IsWindows -or $IsMacOS) {
-    Write-Host 'Checking installation of steamcmd...' -NoNewline
-    $success = Install-Manual -path $SCMDPath
+Write-Host 'Checking installation of steamcmd...' -NoNewline
+$success
 
-    if ($success) {
-        Write-Host 'success' -ForegroundColor Green
-    }
-    else {
-        Write-Host 'fail!' -ForegroundColor Red
-        exit 1
-    }
+if ($IsWindows -or $IsMacOS -or !$RepoInstall) {
+    $success = Install-Manual -path $SCMDPath
+}
+else {
+    $success = Install-Repository
+}
+
+if ($success) {
+    Write-Host 'success' -ForegroundColor Green
+}
+else {
+    Write-Host 'fail!' -ForegroundColor Red
+    exit 1
 }
 
 if ($AppID) {
