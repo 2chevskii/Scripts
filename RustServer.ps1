@@ -446,7 +446,7 @@ function emitServerCfg {
         [bool]$noConfirm = $false
     )
 
-    $cfgPath = "$($settings['server'])/server/$($settings['config']['identity'])/server.cfg"
+    $cfgPath = "$($settings['server'])/server/$($settings['config']['identity'])/cfg/server.cfg"
 
     $cfgExists = Test-Path -Path $cfgPath
 
