@@ -1,3 +1,5 @@
+#!/usr/bin/pwsh
+
 param (
     [int]$AppID,
     [string]$AppDir,
@@ -224,10 +226,13 @@ function Update-App {
     $cmdlineargs += ' +quit'
 
     if ($RepoInstall) {
-        Write-Warning 'placeholder'
+        &steamcmd $cmdlineargs
     }
     elseif ($IsMacOS) {
-        Write-Warning 'placeholder'
+        Start-Process -FilePath "$SCMDPath/osx32/steamcmd" -ArgumentList "$cmdlineargs" -NoNewWindow -Wait
+    }
+    elseif ($IsLinux) {
+        Start-Process -FilePath "$SCMDPath/linux32/steamcmd" -ArgumentList "$cmdlineargs" -NoNewWindow -Wait
     }
     else {
         Start-Process -FilePath "$SCMDPath/steamcmd.exe" -ArgumentList "$cmdlineargs" -NoNewWindow -Wait
