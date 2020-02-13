@@ -1,17 +1,34 @@
 #!/usr/bin/pwsh
 
 param (
+    [Parameter(Position = 0)]
     [int]$AppID,
+    [Parameter(Position = 1)]
     [string]$AppDir,
+    [switch]$Validate,
+
+    [Parameter(ParameterSetName = "Beta", Mandatory = $true)]
+    [Parameter(ParameterSetName = "Authorized")]
     [string]$Branch,
+    [Parameter(ParameterSetName = "Beta")]
+    [Parameter(ParameterSetName = "Authorized")]
     [string]$BranchPass,
+
+    [Parameter(ParameterSetName = "Authorized", Mandatory = $true)]
+    [switch]$UseLogin,
+    [Parameter(ParameterSetName = "Authorized", Position = 2)]
+    [ValidatePattern("[^(anonymous)]")]
     [string]$Login = "anonymous",
+    [Parameter(ParameterSetName = "Authorized", Position = 3)]
     [string]$Password,
+    [Parameter(ParameterSetName = "Authorized", Position = 4)]
     [string]$SteamGuardCode,
+
+    [Parameter(ParameterSetName = "LocalInstall", Position = 5)]
     [string]$SCMDPath,
-    [switch]$RepoInstall,
-    [switch]$Validate
-)
+    [Parameter(ParameterSetName = "GlobalInstall")]
+    [switch]$RepoInstall
+)## assecure string and stuff (check the browser you dumbass)
 
 $script_version = @{
     major = 2
@@ -19,9 +36,9 @@ $script_version = @{
     patch = 1
 }
 
-$script_version_string = "v$($script_version.major).$($script_version.minor).$($script_version.patch)"
+$script_version_formatted = "v$($script_version.major).$($script_version.minor).$($script_version.patch)"
 
-Write-Host "SteamCMD handler $script_version_string by " -NoNewline
+Write-Host "SteamCMD handler $script_version_formatted by " -NoNewline
 Write-Host '2CHEVSKII' -ForegroundColor Magenta
 Write-Host 'Licensed under MIT License: ' -NoNewline
 Write-Host 'https://www.tldrlegal.com/l/mit' -ForegroundColor Blue
