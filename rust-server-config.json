@@ -1,0 +1,27 @@
+{
+  "server_cfg": [
+    "aimanager.nav_wait 1",
+    "fps.limit 60"
+  ],
+  "config": {
+    "maxplayers": 200,
+    "url": "https://example.com",
+    "pve": false,
+    "seed": 0,
+    "rcon_port": 28016,
+    "description": "Example description",
+    "map": "Procedural Map",
+    "radiation": true,
+    "globalchat": true,
+    "headerimage": "https://example.com",
+    "rcon_password": 0,
+    "logfile": "logs\\server.log",
+    "port": 28015,
+    "hostname": "My server",
+    "worldsize": 3500,
+    "identity": "myServer"
+  },
+  "steamcmd": "C:\\Users\\2CHEVSKII\\source\\repos\\Scripts\\SteamCMD.ps1",
+  "uMod_branch": "stable",
+  "server": "C:\\Users\\2CHEVSKII\\source\\repos\\Scripts\\rust-ds"
+}
