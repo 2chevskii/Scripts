@@ -1,60 +1,88 @@
-#!/usr/bin/pwsh
+#!/usr/bin/env pwsh
 
+<#
+.SYNOPSIS
+    Invokes steamcmd actions
+.DESCRIPTION
+    You can install steamcmd and apps using this script
+.EXAMPLE
+    SteamCMD.ps1 ./steamcmdfolder 258550 ./rust-ds -validate
+    Install Rust dedicated server into rust-ds/ folder using steamcmd executable from steamcmdfolder/
+.LINK
+    https://github.com/2chevskii/Scripts/blob/master/SteamCMD.ps1
+#>
+[System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingPlainTextForPassword", "password")]
+[System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingPlainTextForPassword", "branchpassword")]
+[CmdLetBinding(DefaultParameterSetName = 'LocalInstall', PositionalBinding)]
 param (
+    ## App
     [Parameter(Position = 0)]
+    [Alias('id')]
     [int]$AppID,
     [Parameter(Position = 1)]
-    [string]$AppDir,
+    [Alias('dir')]
+    [string]$AppInstallPath,
     [switch]$Validate,
 
-    [Parameter(ParameterSetName = "Beta", Mandatory = $true)]
-    [Parameter(ParameterSetName = "Authorized")]
+    ## Steamcmd executable
+    [Parameter(ParameterSetName = 'LocalInstall', Position = 2)]
+    [string]$InstallPath = "$PSScriptRoot/steamcmd",
+    [Parameter(ParameterSetName = 'GlobalInstall', Mandatory = $true)]
+    [Alias('g')]
+    [ValidateScript( { $IsLinux }, ErrorMessage = "GlobalInstall option is only available while using Linux-based OS!")]
+    [switch]$GlobalInstall,
+
+    ## Alternative branches
+    [Alias('b')]
     [string]$Branch,
-    [Parameter(ParameterSetName = "Beta")]
-    [Parameter(ParameterSetName = "Authorized")]
-    [string]$BranchPass,
+    [string]$BranchPassword,
 
-    [Parameter(ParameterSetName = "Authorized", Mandatory = $true)]
-    [switch]$UseLogin,
-    [Parameter(ParameterSetName = "Authorized", Position = 2)]
-    [ValidatePattern("[^(anonymous)]")]
-    [string]$Login = "anonymous",
-    [Parameter(ParameterSetName = "Authorized", Position = 3)]
+    ## Logging in
+    [Parameter(Position = 3)]
+    [ValidatePattern('^(?!^anonymous$).*$')]
+    [Alias('username', 'user', 'l')]
+    [ValidateNotNullOrEmpty()]
+    [string]$Login,
+    [Parameter(Position = 4)]
+    [ValidateNotNullOrEmpty()]
+    [Alias('p', 'pass')]
     [string]$Password,
-    [Parameter(ParameterSetName = "Authorized", Position = 4)]
-    [string]$SteamGuardCode,
+    [Parameter(Position = 5)]
+    [ValidateNotNullOrEmpty()]
+    [string]$SteamGuard
+)
 
-    [Parameter(ParameterSetName = "LocalInstall", Position = 5)]
-    [string]$SCMDPath,
-    [Parameter(ParameterSetName = "GlobalInstall")]
-    [switch]$RepoInstall
-)## assecure string and stuff (check the browser you dumbass)
+#region WELCOME SCREEN
 
+$script_name = 'SteamCMD handler'
+$script_author = '2CHEVSKII'
 $script_version = @{
     major = 2
-    minor = 0
-    patch = 1
+    minor = 1
+    patch = 0
 }
-
 $script_version_formatted = "v$($script_version.major).$($script_version.minor).$($script_version.patch)"
+$script_license_link = 'https://www.tldrlegal.com/l/mit'
+$script_repository = 'https://github.com/2chevskii/Scripts'
 
-Write-Host "SteamCMD handler $script_version_formatted by " -NoNewline
-Write-Host '2CHEVSKII' -ForegroundColor Magenta
-Write-Host 'Licensed under MIT License: ' -NoNewline
-Write-Host 'https://www.tldrlegal.com/l/mit' -ForegroundColor Blue
+Write-Host "$script_name " -NoNewline
+Write-Host "$script_version_formatted " -NoNewline -ForegroundColor DarkYellow
+Write-Host 'by ' -NoNewline
+Write-Host $script_author -ForegroundColor Magenta
+Write-Host 'Licensed under the MIT License: ' -NoNewline
+Write-Host $script_license_link -ForegroundColor Blue
 Write-Host 'Source repository: ' -NoNewline
-Write-Host '<placeholder>' -ForegroundColor DarkBlue
+Write-Host $script_repository -ForegroundColor DarkBlue
 
-if ((Get-Host).Version.Major -lt 6) {
-    Write-Error 'This script is only intended to execute inside PowerShell Core!'
-    exit 1
+#endregion
+
+#region Constants
+
+$steamcmd_downloadlink = @{
+    windows = 'https://steamcdn-a.akamaihd.net/client/installer/steamcmd.zip'
+    linux   = 'https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz'
+    macos   = 'https://steamcdn-a.akamaihd.net/client/installer/steamcmd_osx.tar.gz'
 }
-
-$root = $PSScriptRoot
-
-$steamcmd_dl_win = 'https://steamcdn-a.akamaihd.net/client/installer/steamcmd.zip'
-$steamcmd_dl_macos = 'https://steamcdn-a.akamaihd.net/client/installer/steamcmd_osx.tar.gz'
-$steamcmd_dl_linux = 'https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz'
 
 $is64bit = [System.Environment]::Is64BitOperatingSystem
 
@@ -66,6 +94,10 @@ enum OSVer {
     ARCH
     NOT_SUPPORTED
 }
+
+#endregion
+
+#region Functions
 
 function Get-OsRelease {
     if ($IsWindows) {
@@ -99,15 +131,17 @@ function Get-OsRelease {
     return [OSVer]::NOT_SUPPORTED
 }
 
-function Install-Repository {
-    if ($os_release -eq [OSVer]::NOT_SUPPORTED) {
-        Write-Host 'Your OS does not support repository installation, try another options!'
-        return $false
+function Install-Global {
+    param(
+        [Parameter(ValueFromPipeline)]
+        [OSVer]$os
+    )
+
+    if (!$IsLinux) {
+        'Repository install is only available in Linux systems!'
     }
 
-    $os_release = Get-OsRelease
-
-    switch ($os_release) {
+    switch ($os) {
         [OSVer]::DEBIAN_UBUNTU {
             if ($is64bit) {
                 &sudo add-apt-repository multiverse
@@ -128,178 +162,227 @@ function Install-Repository {
             &makepkg -si
             &ln -s /usr/games/steamcmd steamcmd
         }
+        default {
+            throw 'Your OS does not support repository installation, try another options!'
+        }
     }
 }
 
-function Install-Manual {
+function Install-Local {
     param(
+        [Parameter(ValueFromPipeline)]
+        [OSVer]$os,
         [string]$path
     )
 
-    if (($IsWindows -and (Test-Path -Path "$path/steamcmd.exe")) -or ($IsLinux -and (Test-Path -Path "$path/linux32/steamcmd")) -or ($IsMacOS -and (Test-Path -Path "$path/osx32/steamcmd"))) {
-        return $true
+    if ($os -eq [OSVer]::NOT_SUPPORTED) {
+        throw 'This OS version is not supported'
     }
 
-    New-Item -Path $path -ItemType Directory -ErrorAction SilentlyContinue
+    if ($os -ne [OSVer]::WINDOWS -and !(Get-Command tar.exe -ErrorAction SilentlyContinue)) {
+        throw 'Tar not found'
+    }
+
+    switch ($os) {
+        WINDOWS {
+            $archive_path = Join-Path -Path $path -ChildPath 'steamcmd.zip'
+            $dl_link = $steamcmd_downloadlink.windows
+            $exec_path = Join-Path -Path $path -ChildPath 'steamcmd.exe'
+        }
+        MACOS {
+            $archive_path = Join-Path -Path $path -ChildPath 'steamcmd.tar.gz'
+            $dl_link = $steamcmd_downloadlink.macos
+            $exec_path = Join-Path -Path $path -ChildPath 'steamcmd'
+        }
+        Default {
+            $archive_path = Join-Path -Path $path -ChildPath 'steamcmd.tar.gz'
+            $dl_link = $steamcmd_downloadlink.linux
+            $exec_path = Join-Path -Path $path -ChildPath 'steamcmd'
+        }
+    }
+
+    # Test if steamcmd exists already
+    if (Test-Path $exec_path) {
+        return
+    }
+
+    # Prepare installation folder 
+    New-Item -Path $path -ItemType Directory -ErrorAction SilentlyContinue | Out-Null
 
     try {
-        if ($IsWindows) {
-            Invoke-WebRequest -Uri $steamcmd_dl_win -OutFile "$path/steamcmd.zip"
-        }
-        elseif ($IsLinux) {
-            Invoke-WebRequest -Uri $steamcmd_dl_linux -OutFile "$path/steamcmd.tar.gz"  
+        Write-Host 'Downloading steamcmd...'
+        Invoke-WebRequest -Uri $dl_link -OutFile $archive_path
+    }
+    catch {
+        throw 'Could not download steamcmd archive'
+    }
+
+    if (!(Test-Path $archive_path)) {
+        throw 'Steamcmd archive was not downloaded for some reason'
+    }
+
+    try {
+        Write-Host 'Extracting archive...'
+        if ($os -eq [OSVer]::WINDOWS) {
+            Expand-Archive -Path $archive_path -DestinationPath $path -Force -ErrorAction Stop
         }
         else {
-            Invoke-WebRequest -Uri $steamcmd_dl_macos -OutFile "$path/steamcmd.tar.gz"
+            &tar -C $path -xvzf $archive_path
         }
     }
     catch {
-        Write-Host 'Could not download steamcmd archive!' -ForegroundColor Red
-        return $false
-    }
-
-    if (!(Test-Path "$path/steamcmd.*")) {
-        Write-Host 'Cannot find steamcmd archive!' -ForegroundColor Red
-        return $false
+        throw 'Could not extract steamcmd archive'
     }
 
     try {
-        if ($IsWindows) {
-            Expand-Archive -Path "$path/steamcmd.zip" -DestinationPath $path -Force
-        }
-        else {
-            &tar -C $path -xvzf "$path/steamcmd.tar.gz"
-        }
-    }
-    catch {
-        Write-Host 'Could not expand steamcmd archive!' -ForegroundColor Red
-        return $false
-    }
-
-    if ($IsLinux) {
-        $os_ver = Get-OsRelease
-
-        if ($os_ver -eq [OSVer]::DEBIAN_UBUNTU -and $is64bit) {
+        Write-Host 'Installing dependecies...'
+        if ($os -eq [OSVer]::DEBIAN_UBUNTU -and $is64bit) {
             &sudo apt-get install lib32gcc1
         }
-        elseif ($os_ver -eq [OSVer]::REDHAT_CENTOS) {
-            if ($is64bit) {
-                &yum install glibc.i686 libstdc++.i686
-            }
-            else {
-                &yum install glibc libstdc++
-            }
+        elseif ($os -eq [OSVer]::REDHAT_CENTOS -and !$is64bit) {
+            &yum install glibc libstdc++
         }
-    }
-
-    try {
-        if ($IsWindows) {
-            Remove-Item -Path "$path/steamcmd.zip" -Force
-        }
-        else {
-            Remove-Item -Path "$path/steamcmd.tar.gz" -Force
+        elseif ($os -eq [OSVer]::REDHAT_CENTOS -and $is64bit) {
+            &yum install glibc.i686 libstdc++.i686
         }
     }
     catch {
-        Write-Warning 'Error occured while removing temp files'
+        throw 'Could not install dependencies'
     }
 
-    if ($IsWindows) {
-        return Test-Path -Path "$path/steamcmd.exe"
+    try {
+        Write-Host 'Cleaning up...'
+        Remove-Item -Path $archive_path -Force
     }
-    elseif ($IsLinux) {
-        return Test-Path -Path "$path/linux32/steamcmd"
-    }
-    else {
-        return Test-Path -Path "$path/osx32/steamcmd"
+    catch {
+        Write-Warning 'Error occured while cleaning up temp files'
     }
 
+    if (!(Test-Path -Path $exec_path)) {
+        throw 'Cannot find steamcmd executable'
+    }
+
+    if ($os -ne [OSVer]::WINDOWS) {
+        try {
+            Write-Host 'Setting executable mode...'
+            &sudo chmod +x $exec_path
+        }
+        catch {
+            Write-Warning 'Could not set steamcmd as executable'
+        }
+    }
 }
 
-function Get-LoginCredentials {
-    $creds = "+login $Login"
+function Get-Login {
+    param(
+        [Parameter(Position = 0)]
+        [string]$login,
+        [Parameter(Position = 1)]
+        [string]$password,
+        [Parameter(Position = 2)]
+        [string]$steamguard
+    )
+    $creds = '+login'
 
-    if ($Password) {
-        $creds += " $Password"
+    if (!$login) {
+        return $creds + ' anonymous'
     }
 
-    if ($SteamGuardCode -and $Password) {
-        $creds += " $SteamGuardCode"
+    $creds += " $login $password"
+    
+    if ($steamguard) {
+        $creds += " $steamguard"
     }
-
+    
     return $creds
 }
 
-function Update-App {
-    $cmdlineargs = "$(Get-LoginCredentials) +force_install_dir $AppDir +app_update $AppID"
+function Install-App {
 
-    if ($Branch) {
-        $cmdlineargs += " -beta $Branch"
+    param (
+        [Parameter(Mandatory, Position = 0)]
+        [string]$id,
+        [Parameter(Position = 1, Mandatory)]
+        [string]$dir,
+        [string]$branch,
+        [string]$branchpass,
+        [string]$login,
+        [string]$password,
+        [string]$steamguard,
+        [Parameter(Position = 2)]
+        [string]$steamcmdpath,
+        [Parameter(Position = 3)]
+        [switch]$validate
+    )
+
+    $launchargs = "$(Get-Login $login $password $steamguard) +force_install_dir $dir +app_update $id"
+
+    if ($branch) {
+        $launchargs += " -beta $branch"
     }
 
-    if ($BranchPass -and $Branch) {
-        $cmdlineargs += " -betapassword $BranchPass"
+    if ($branchpass) {
+        $launchargs += " -betapassword $branchpass"
     }
 
-    if ($Validate) {
-        $cmdlineargs += ' validate'
+    if ($validate) {
+        $launchargs += ' -validate'
     }
 
-    $cmdlineargs += ' +quit'
+    $launchargs += ' +quit'
+    $os = Get-OsRelease
 
-    if ($RepoInstall) {
-        &steamcmd $cmdlineargs
+    if ($os -eq [OSVer]::NOT_SUPPORTED) {
+        throw 'OS is not supported'
     }
-    elseif ($IsMacOS) {
-        Start-Process -FilePath "$SCMDPath/osx32/steamcmd" -ArgumentList "$cmdlineargs" -NoNewWindow -Wait
+
+    $exec_path = if (!$steamcmdpath) { 'steamcmd' } elseif ($os -eq [OSVer]::WINDOWS) { Join-Path -Path $steamcmdpath -ChildPath 'steamcmd.exe' } else { Join-Path -Path $steamcmdpath -ChildPath 'steamcmd' }
+
+    try {
+        Start-Process -FilePath $exec_path -ArgumentList "$launchargs" -NoNewWindow -Wait -ErrorAction Stop
     }
-    elseif ($IsLinux) {
-        Start-Process -FilePath "$SCMDPath/linux32/steamcmd" -ArgumentList "$cmdlineargs" -NoNewWindow -Wait
-    }
-    else {
-        Start-Process -FilePath "$SCMDPath/steamcmd.exe" -ArgumentList "$cmdlineargs" -NoNewWindow -Wait
+    catch {
+        'Error while updating: ' + $_.Exception.Message
     }
 }
 
-if ($RepoInstall -and !$IsLinux) {
-    Write-Error '-RepoInstall is only available on Linux!'
-    exit 1
+#endregion
+
+###################################
+########### Entry point ###########
+###################################
+
+if ($PSVersionTable.PSEdition -ne 'Core') {
+    throw 'This script is only supported in PowerShell Core'
 }
 
-if (!$SCMDPath) {
-    $SCMDPath = "$root/steamcmd"
+if ($GlobalInstall) {
+    $InstallPath = $null
+}
+elseif (!$InstallPath) {
+    $InstallPath = "$PSScriptRoot/steamcmd"
 }
 
-if ($AppDir) {
-    New-Item -Path $AppDir -ItemType Directory -ErrorAction SilentlyContinue
-    $AppDir = Resolve-Path $AppDir
-}
-elseif (!$AppDir -and $AppID) {
-    $AppDir = "$root/app-$AppID"
+if ($AppID -and !$AppInstallPath) {
+    $AppInstallPath = "$PSScriptRoot/app-$AppID"
 }
 
-Write-Host 'Checking installation of steamcmd...' -NoNewline
-$success
+Write-Host '⚠ Steamcmd installation check' -ForegroundColor Yellow
 
-if ($IsWindows -or $IsMacOS -or !$RepoInstall) {
-    $success = Install-Manual -path $SCMDPath
+if ($GlobalInstall) {
+    Get-OsRelease | Install-Global
 }
 else {
-    $success = Install-Repository
+    Get-OsRelease | Install-Local -path $InstallPath
 }
 
-if ($success) {
-    Write-Host 'success' -ForegroundColor Green
-}
-else {
-    Write-Host 'fail!' -ForegroundColor Red
-    exit 1
-}
+Write-Host '✔ Steamcmd installed' -ForegroundColor Green
 
 if ($AppID) {
-    Write-Host "Installing $AppID into $AppDir"
-    Update-App
-}
-else {
-    Write-Host 'No AppID specified, exiting' -ForegroundColor Yellow
+    
+    New-Item -Path $AppInstallPath -ItemType Directory -ErrorAction SilentlyContinue
+    $dir = Resolve-Path $AppInstallPath
+    Write-Host "🛠 Installing app $AppID into '$dir'" -ForegroundColor Yellow
+    Install-App -id $AppID -dir $dir -branch $Branch -branchpass $BranchPassword -login $Login -password $Password -steamguard $SteamGuard -steamcmdpath $InstallPath $Validate
+    Write-Host "✔ App $AppID installed" -ForegroundColor Green
 }
