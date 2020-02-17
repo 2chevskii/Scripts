@@ -54,7 +54,7 @@ param (
 
 #region WELCOME SCREEN
 
-$script_name = 'SteamCMD handler'
+$script_name = 'SteamCMD helper'
 $script_author = '2CHEVSKII'
 $script_version = @{
     major = 2
