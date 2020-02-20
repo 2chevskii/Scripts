@@ -59,7 +59,7 @@ $script_author = '2CHEVSKII'
 $script_version = @{
     major = 2
     minor = 1
-    patch = 0
+    patch = 1
 }
 $script_version_formatted = "v$($script_version.major).$($script_version.minor).$($script_version.patch)"
 $script_license_link = 'https://www.tldrlegal.com/l/mit'
@@ -98,6 +98,19 @@ enum OSVer {
 #endregion
 
 #region Functions
+
+function Write-Colored {
+    param(
+        [string]$msg,
+        [System.ConsoleColor]$color
+    )
+
+    $defcolor = $Host.UI.RawUI.ForegroundColor
+
+    $Host.UI.RawUI.ForegroundColor = $color
+    Write-Output $msg
+    $Host.UI.RawUI.ForegroundColor = $defcolor
+}
 
 function Get-OsRelease {
     if ($IsWindows) {
@@ -138,7 +151,7 @@ function Install-Global {
     )
 
     if (!$IsLinux) {
-        'Repository install is only available in Linux systems!'
+        throw 'Repository install is only available in Linux systems!'
     }
 
     switch ($os) {
@@ -210,7 +223,7 @@ function Install-Local {
     New-Item -Path $path -ItemType Directory -ErrorAction SilentlyContinue | Out-Null
 
     try {
-        Write-Host 'Downloading steamcmd...'
+        Write-Output '[10%] Downloading steamcmd...'
         Invoke-WebRequest -Uri $dl_link -OutFile $archive_path
     }
     catch {
@@ -222,7 +235,7 @@ function Install-Local {
     }
 
     try {
-        Write-Host 'Extracting archive...'
+        Write-Output '[50%] Extracting archive...'
         if ($os -eq [OSVer]::WINDOWS) {
             Expand-Archive -Path $archive_path -DestinationPath $path -Force -ErrorAction Stop
         }
@@ -235,7 +248,7 @@ function Install-Local {
     }
 
     try {
-        Write-Host 'Installing dependecies...'
+        Write-Output '[75%] Installing dependencies...'
         if ($os -eq [OSVer]::DEBIAN_UBUNTU -and $is64bit) {
             &sudo apt-get install lib32gcc1
         }
@@ -251,7 +264,7 @@ function Install-Local {
     }
 
     try {
-        Write-Host 'Cleaning up...'
+        Write-Output '[95%] Cleaning up...'
         Remove-Item -Path $archive_path -Force
     }
     catch {
@@ -264,7 +277,7 @@ function Install-Local {
 
     if ($os -ne [OSVer]::WINDOWS) {
         try {
-            Write-Host 'Setting executable mode...'
+            Write-Output '[99%] Setting executable mode...'
             &sudo chmod +x $exec_path
         }
         catch {
@@ -339,10 +352,18 @@ function Install-App {
     $exec_path = if (!$steamcmdpath) { 'steamcmd' } elseif ($os -eq [OSVer]::WINDOWS) { Join-Path -Path $steamcmdpath -ChildPath 'steamcmd.exe' } else { Join-Path -Path $steamcmdpath -ChildPath 'steamcmd' }
 
     try {
-        Start-Process -FilePath $exec_path -ArgumentList "$launchargs" -NoNewWindow -Wait -ErrorAction Stop
+        Write-Colored -msg "🛠 Installing app $id into '$dir'" -color Yellow
+
+        $proc = Start-Process -FilePath $exec_path -ArgumentList "$launchargs" -NoNewWindow -Wait -ErrorAction Stop -PassThru
+        
+        if ($proc.ExitCode -ne 0) {
+            throw "Last exit code was not equal to zero ($($proc.ExitCode)) (probably wrong appid)"
+        }
+
+        Write-Colored -msg "✔ App $id installed" -color Green
     }
     catch {
-        'Error while updating: ' + $_.Exception.Message
+        Write-Colored -msg "App $id failed to install:`n$($_.Exception.Message)" -color Red
     }
 }
 
@@ -352,22 +373,31 @@ function Install-App {
 ########### Entry point ###########
 ###################################
 
+######## Check PS version #########
 if ($PSVersionTable.PSEdition -ne 'Core') {
-    throw 'This script is only supported in PowerShell Core'
+    Write-Warning 'This script might or might not work correctly on old PS editions. Consider updating to PowerShell Core if you are experiencing issues'
 }
 
+# Set steamcmd installation paths #
 if ($GlobalInstall) {
     $InstallPath = $null
 }
 elseif (!$InstallPath) {
     $InstallPath = "$PSScriptRoot/steamcmd"
+
+    Write-Warning "Steamcmd install path was set automatically to '$InstallPath'"
 }
 
+### Set app installation paths ###
 if ($AppID -and !$AppInstallPath) {
     $AppInstallPath = "$PSScriptRoot/app-$AppID"
+
+    Write-Warning "Application install path was set automatically to '$AppInstallPath'"
 }
 
-Write-Host '⚠ Steamcmd installation check' -ForegroundColor Yellow
+#region Install steamcmd
+
+Write-Colored -msg "⚠ Steamcmd installation check" -color Yellow
 
 if ($GlobalInstall) {
     Get-OsRelease | Install-Global
@@ -376,13 +406,16 @@ else {
     Get-OsRelease | Install-Local -path $InstallPath
 }
 
-Write-Host '✔ Steamcmd installed' -ForegroundColor Green
+Write-Colored -msg "✔ Steamcmd installed" -color Green
+
+#endregion
+
+#region Install application
 
 if ($AppID) {
-    
-    New-Item -Path $AppInstallPath -ItemType Directory -ErrorAction SilentlyContinue
+    New-Item -Path $AppInstallPath -ItemType Directory -ErrorAction SilentlyContinue | Out-Null
     $dir = Resolve-Path $AppInstallPath
-    Write-Host "🛠 Installing app $AppID into '$dir'" -ForegroundColor Yellow
     Install-App -id $AppID -dir $dir -branch $Branch -branchpass $BranchPassword -login $Login -password $Password -steamguard $SteamGuard -steamcmdpath $InstallPath $Validate
-    Write-Host "✔ App $AppID installed" -ForegroundColor Green
 }
+
+#endregion
