@@ -1,0 +1,19 @@
+{
+  "identity": "example-identity",
+  "logfile": "logs/server.log",
+  "hostname": "Example rust server hostname",
+  "description": "Example rust server description",
+  "url": "https://example.url",
+  "header_url": "https://example.url",
+  "server_ip": "235.255.255.255",
+  "server_port": 28015,
+  "rcon_port": 28016,
+  "rcon_password": "changeme",
+  "globalchat": true,
+  "pve": false,
+  "radiation": true,
+  "map": "Procedural Map",
+  "worldsize": 4000,
+  "seed": 1942,
+  "maxplayers": 1337
+}
