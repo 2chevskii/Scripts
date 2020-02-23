@@ -352,15 +352,11 @@ function Install-App {
     $exec_path = if (!$steamcmdpath) { 'steamcmd' } elseif ($os -eq [OSVer]::WINDOWS) { Join-Path -Path $steamcmdpath -ChildPath 'steamcmd.exe' } else { Join-Path -Path $steamcmdpath -ChildPath 'steamcmd' }
 
     try {
-        Write-Colored -msg "🛠 Installing app $id into '$dir'" -color Yellow
+        Write-Colored -msg "$([string][char]8252) Installing app $id into '$dir'" -color Yellow
 
-        $proc = Start-Process -FilePath $exec_path -ArgumentList "$launchargs" -NoNewWindow -Wait -ErrorAction Stop -PassThru
+        Start-Process -FilePath $exec_path -ArgumentList "$launchargs" -NoNewWindow -Wait -ErrorAction Stop -PassThru
         
-        if ($proc.ExitCode -ne 0) {
-            throw "Last exit code was not equal to zero ($($proc.ExitCode)) (probably wrong appid)"
-        }
-
-        Write-Colored -msg "✔ App $id installed" -color Green
+        Write-Colored -msg "$([string][char]8730) App $id installed" -color Green
     }
     catch {
         Write-Colored -msg "App $id failed to install:`n$($_.Exception.Message)" -color Red
@@ -397,7 +393,7 @@ if ($AppID -and !$AppInstallPath) {
 
 #region Install steamcmd
 
-Write-Colored -msg "⚠ Steamcmd installation check" -color Yellow
+Write-Colored -msg "$([string][char]8252) Steamcmd installation check" -color Yellow
 
 if ($GlobalInstall) {
     Get-OsRelease | Install-Global
@@ -406,7 +402,7 @@ else {
     Get-OsRelease | Install-Local -path $InstallPath
 }
 
-Write-Colored -msg "✔ Steamcmd installed" -color Green
+Write-Colored -msg "$([string][char]8730) Steamcmd installed" -color Green
 
 #endregion
 
