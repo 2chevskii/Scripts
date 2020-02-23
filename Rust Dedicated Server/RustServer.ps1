@@ -1,7 +1,6 @@
 #!/usr/bin/env pwsh
 
 using namespace System.Linq
-using module PSReadLine
 using namespace System.Management.Automation.Host
 using namespace System
 using namespace System.Text
