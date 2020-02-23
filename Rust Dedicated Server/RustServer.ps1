@@ -73,7 +73,7 @@ class ServerConfig {
 
     ## Network parameters ######################
     ## Change only if you have multiple ip addresses leading to the server machine, otherwise just leave default
-    [ValidatePattern('\b(?:(?:2[0-5][0-5]|1?[0-9]?[0-9])\.){3}(?:2[0-5][0-5]|1?[0-9]?[0-9])\b')]
+    [ValidatePattern('\b(?:(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])\.){3}(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])\b')]
     [string]$server_ip = '0.0.0.0'
     [ValidateRange(0, 65535)]
     [int]$server_port = 28015
@@ -603,3 +603,76 @@ function Get-UserInput {
 }
 
 #endregion
+
+function Invoke-Wipe {
+    param(
+        [string]$path,
+        [string]$identity
+    )
+
+    $identity_folder_path = Join-Path -Path $path -ChildPath 'server' -AdditionalChildPath $identity
+
+    Write-Output "Trying to wipe server '$identity' ($identity_folder_path)"
+
+    if (!(Test-Path $identity_folder_path)) {
+        Write-Output 'No server directory found'
+        return
+    }
+
+    $filesToDelete = Get-ChildItem -Path $identity_folder_path | Where-Object {
+        return ($_.Name -like 'player.*.db') -or ($_.Name -like '*.map') -or ($_.Name -like '*.sav')
+    }
+
+    if ($filesToDelete.Length -lt 1) {
+        Write-Output 'No persistence files found'
+        return 
+    }
+
+    Write-Output "Goint to delete $($filesToDelete.Length) files:"
+    $filesToDelete | Format-List | Write-Output
+    
+    Wait-WithPrompt -msg 'Press any key to cancel wipe' -seconds 5
+
+    foreach ($file in $filesToDelete) {
+        Write-Host "Removing file '$($file.Name)'..." -NoNewline
+        $file.Delete()
+        Write-Host 'Success' -ForegroundColor Green
+    }
+
+    Write-Host 'Wipe completed' -ForegroundColor Green
+}
+
+if ($Update) {
+    $UpdateServer = $UpdateOxide = $true
+}
+
+[ServerConfig]$script_configuration = Get-Configuration -path $ConfigPath
+
+if ($ConfigValues) {
+    $script_configuration = Update-Configuration -current $script_configuration -new $ConfigValues
+}
+
+if ($ServerCfgValues) {
+    $identity = $script_configuration.identity
+
+    Update-ServerCfg -server_path $ServerPath -server_identity $identity -values $ServerCfgValues
+}
+
+if ($UpdateServer) {
+    Update-Server -path $ServerPath -cmd_path $SteamCmdPath -cmd_script_path $SteamCmdScriptPath -clear $CleanUpdate
+}
+
+if ($UpdateOxide) {
+    Update-Oxide -path $ServerPath
+}
+
+if ($Wipe) {
+    Invoke-Wipe -path $ServerPath -identity $script_configuration.identity
+}
+
+if ($Start) {
+    Start-Server -path $ServerPath -config $script_configuration -autorestart $Autorestart
+}
+
+#Write-Output $script_configuration #testing
+
