@@ -278,7 +278,9 @@ function Read-ServerCfg {
 
     Write-Output "Reading server.cfg from $servercfg_path"
 
-    $tbl = @{ }
+    [hashtable]$tbl = @{ }
+
+    Write-Warning $tbl.GetType().name
 
     if (!(Test-Path $servercfg_path)) {
         return $tbl
@@ -287,6 +289,9 @@ function Read-ServerCfg {
     $content = Get-Content -Path $servercfg_path -Encoding utf8
 
     foreach ($line in $content) {
+        if ([string]::IsNullOrEmpty($line)) {
+            continue
+        }
         $arr = $line.Split(' ').Where( { ![string]::IsNullOrEmpty($_) })
 
         if ($arr.Length -lt 2) {
@@ -303,6 +308,10 @@ function Read-ServerCfg {
         $tbl[$k] = $v
     }
 
+    Write-Warning $tbl.GetType().name
+
+    $tbl | Format-List
+
     return $tbl
 }
 
@@ -313,7 +322,9 @@ function Write-ServerCfg {
         [hashtable]$values
     )
 
-    $servercfg_path = Join-Path -Path $server_path -ChildPath 'server' -AdditionalChildPath $server_identity, 'cfg', 'server.cfg'
+    $cfg_folder_path = Join-Path -Path $server_path -ChildPath 'server' -AdditionalChildPath $server_identity, 'cfg'
+
+    $servercfg_path = Join-Path -Path $cfg_folder_path -ChildPath 'server.cfg'
 
     Write-Output "Writing server.cfg at $servercfg_path"
 
@@ -323,6 +334,10 @@ function Write-ServerCfg {
         $strValue = "$key $($values[$key])"
 
         $strValues += $strValue + "`n"
+    }
+
+    if (!(Test-Path $cfg_folder_path)) {
+        New-Item -ItemType Directory -Path $cfg_folder_path
     }
 
     Out-File -FilePath $servercfg_path -Encoding utf8 -InputObject $strValues -Force
@@ -337,7 +352,7 @@ function Update-ServerCfg {
 
     Write-Output 'Updating server.cfg...'
 
-    [hashtable]$oldcfg = Read-ServerCfg -server_path $server_path -server_identity $server_identity
+    $oldcfg = Read-ServerCfg -server_path $server_path -server_identity $server_identity
 
     foreach ($key in $oldcfg.Keys) {
         $values[$key] = $oldcfg[$key]
@@ -655,7 +670,7 @@ if ($ConfigValues) {
 if ($ServerCfgValues) {
     $identity = $script_configuration.identity
 
-    Update-ServerCfg -server_path $ServerPath -server_identity $identity -values $ServerCfgValues
+    Update-ServerCfg -server_path $ServerPath -server_identity $identity -values (ConvertFrom-CommandLineArgs $ServerCfgValues)
 }
 
 if ($UpdateServer) {
@@ -673,6 +688,3 @@ if ($Wipe) {
 if ($Start) {
     Start-Server -path $ServerPath -config $script_configuration -autorestart $Autorestart
 }
-
-#Write-Output $script_configuration #testing
-
