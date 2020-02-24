@@ -2,8 +2,6 @@
 
 #region Usings
 
-using namespace System.Linq
-using namespace System.Management.Automation.Host
 using namespace System
 using namespace System.Linq
 using namespace System.Text
@@ -207,6 +205,8 @@ function Update-ScriptConfiguration {
     catch {
         Write-Host "Failed to save script configuration: $_"
     }
+
+    return $config
 }
 
 function Read-ScriptConfiguration {
@@ -350,24 +350,22 @@ function ConvertTo-LaunchArgs {
         [hashtable]$arguments
     )
 
-    $keys = [Enumerable]::ToArray([object[]]$arguments.Keys)
     $strArgs = ''
-    for ($i = 0; $i -lt $keys.Count; $i++) {
-        $strArgs += '+' + $keys[$i] + ' ' #+ $arguments[$keys[$i]]
 
-        $arg = $arguments[$keys[$i]]
+    for ($i = 0; $i -lt $arguments.Count; $i++) {
+        $k = ([object[]]$arguments.Keys)[$i]
+        $v = ([object[]]$arguments.Values)[$i]
 
-        if ($arg.GetType() -eq [string] -and $arg.Contains(' ')) {
-            $strArgs += '"' + $arg + '"'
+        if ($v.GetType() -eq [string] -and $v.Contains(' ')) {
+            $v = "`"$v`""
         }
-        elseif ($arg.GetType() -eq [bool]) {
-            $strArgs += $arg.ToString().ToLower()
-        }
-        else {
-            $strArgs += $arg
+        elseif ($v.GetType() -eq [bool]) {
+            $v = $v.tostring().tolower()
         }
 
-        if ($i -ne $keys.Count - 1) {
+        $strArgs += "+$k $v"
+
+        if ($i -lt $arguments.Count - 1) {
             $strArgs += ' '
         }
     }
@@ -709,7 +707,7 @@ if ($Update) {
     $UpdateServer = $UpdateOxide = $true
 }
 
-Update-ScriptConfiguration -path $ConfigPath -values $ConfigValues -outvariable 'script_configuration'
+$script_configuration = Update-ScriptConfiguration -path $ConfigPath -values $ConfigValues -outvariable 'script_configuration'
 
 Update-ServerCfg -server_path $ServerPath -server_identity $script_configuration.identity -new_values $ServerCfgValues
 
