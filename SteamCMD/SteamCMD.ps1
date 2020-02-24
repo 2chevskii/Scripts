@@ -237,6 +237,7 @@ function Install-Local {
     try {
         Write-Output '[50%] Extracting archive...'
         if ($os -eq [OSVer]::WINDOWS) {
+            
             Expand-Archive -Path $archive_path -DestinationPath $path -Force -ErrorAction Stop
         }
         else {

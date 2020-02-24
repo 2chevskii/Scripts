@@ -410,11 +410,16 @@ function Get-CurrentOxideVersion {
 
     $oxide_path = Join-Path -Path $path -ChildPath 'RustDedicated_Data' -AdditionalChildPath 'Managed', 'Oxide.Rust.dll'
 
+    Write-Host "Oxide, path: $oxide_path"
     if (!(Test-Path $oxide_path)) {
         return 'NONE'
     }
 
-    $assembly = [System.Reflection.Assembly]::LoadFile($oxide_path)
+    $resolved_path = Resolve-Path $oxide_path
+
+    $resolved_path | Out-Host
+
+    $assembly = [System.Reflection.Assembly]::LoadFile($resolved_path)
 
     if (!$assembly) {
         return 'NONE'
@@ -432,7 +437,7 @@ function Get-LatestOxideVersion {
     
     $object = ConvertFrom-Json $response -AsHashtable
 
-    return [System.Version]::new($object['latest_release_version'])
+    return [System.Version]::new($object['latest_release_version'] + '.0')
 }
 
 function Test-NeedOxideUpdate {
@@ -448,7 +453,12 @@ function Test-NeedOxideUpdate {
 
     [System.Version]$latest_version = Get-LatestOxideVersion
 
-    return $current_version.CompareTo($latest_version) -eq -1
+    $result = $current_version.CompareTo($latest_version)
+
+    Write-Host "Current version: $($current_version.tostring('3'))" -ForegroundColor ($result -eq -1 ? 'Red' : $result -eq 0 ? 'Yellow' : 'Green')
+    Write-Host "Latest version: $($latest_version.ToString('3'))" -ForegroundColor ($result -eq 1 ? 'Red' : $result -eq 0 ? 'Yellow' : 'Green')
+
+    return $result -eq -1
 }
 
 #endregion
@@ -482,7 +492,7 @@ function Update-Oxide {
     )
 
     if (!(Test-NeedOxideUpdate -path $path)) {
-        Write-Output 'Oxide update is not necessary'
+        Write-Host 'Oxide update is not necessary' -ForegroundColor Gray
         return
     }
 
@@ -493,11 +503,11 @@ function Update-Oxide {
 
     $oxide_archive_path = './oxide-latest.zip'
 
-    $managed_path = Join-Path -Path $path -ChildPath 'RustDedicated_Data' -AdditionalChildPath 'Managed'
-
     Invoke-WebRequest -Uri ($IsWindows ? $oxide_links.windows : $oxide_links.linux) -OutFile $oxide_archive_path
 
-    Expand-Archive -Path $oxide_archive_path -DestinationPath $managed_path
+    Expand-Archive -Path $oxide_archive_path -DestinationPath $path -Force
+
+    Remove-Item -Path $oxide_archive_path
 }
 
 #endregion
@@ -514,7 +524,11 @@ function Start-Server {
     $launchargs = '-batchmode -nographics'
 
     if ($config.logfile) {
-        $launchargs += " -logfile $($config.logfile)"
+        if (!(Test-Path $config.logfile)) {
+            New-Item $config.logfile -ItemType File -Force
+        }
+
+        $launchargs += " -logfile `"$(Resolve-Path -Path $config.logfile)`""
     }
 
     $config_table = @{
@@ -542,7 +556,7 @@ function Start-Server {
     $launchargs += ' ' + (ConvertTo-LaunchArgs -arguments $config_table)
 
     if ($IsWindows) {
-        Start-Process -FilePath 'cmd.exe' -ArgumentList "/C `"RustDedicated.exe $launchargs`"" -WorkingDirectory $path -NoNewWindow -Wait
+        Start-Process -FilePath 'cmd.exe' -ArgumentList "/C `"RustDedicated.exe $launchargs`"" -WorkingDirectory $path  -Wait
     }
     else {
         Start-Process (Join-Path -Path $path -ChildPath 'RustDedicated') -ArgumentList $launchargs -WorkingDirectory $path -NoNewWindow -Wait
