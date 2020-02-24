@@ -66,6 +66,22 @@ param (
 
 #endregion
 
+#region Constants
+
+$exit_codes = @{
+    success                 = 0b0
+    generic                 = 0b1
+    configuration_load_fail = 0b10
+    server_update_fail      = 0b100
+    oxide_update_fail       = 0b1000
+    server_wipe_fail        = 0b10000
+    server_start_fail       = 0b100000
+}
+
+[ServerConfig]$script_configuration = $null
+
+#endregion
+
 #region Config class
 
 class ServerConfig {
@@ -138,76 +154,82 @@ Write-Host $script_repository -ForegroundColor DarkBlue
 
 #region Script configuration
 
-function Update-Configuration {
-    param(
-        [ServerConfig]$current,
-        [string[]]$new
+function Update-ScriptConfiguration {
+    param (
+        [string]$path,
+        [string[]]$values,
+        [ServerConfig]$config
     )
 
-    [string[]]$server_config_props = [Enumerable]::ToArray([object[]]([ServerConfig].GetProperties() | Select-Object -ExpandProperty Name))
+    if (!$config) {
+        Write-Host 'Loading script configuration...' -ForegroundColor Green
 
-    if ($new -and $new.Length -gt 0) {
-        $tbl = ConvertFrom-CommandLineArgs $new
-
-        foreach ($k in $tbl.keys) {
-            if ($server_config_props.Contains($k)) {
-                $current.$k = $tbl.$k
+        if (!(Test-Path $path)) {
+            Write-Host "No script configuration found at path '$path'" -ForegroundColor Yellow
+        }
+        else {
+            try {
+                $config = Read-ScriptConfiguration -path $path
+            }
+            catch {
+                Write-Host "Error while loading script configuration: $_" -ForegroundColor Red
             }
         }
     }
 
-    return $current
-}
-
-function Get-Configuration {
-    param(
-        [string]$path
-    )
-
-    if (Test-Path $path) {
-        try {
-            $conf = Read-Configuration -path $path
-
-            return $conf
-        }   
-        catch {
-            Write-Error "Failed to read script configuration, default will be loaded instead, error:`n$($_.Exception.Message)"
-        }   
+    if (!$config) {
+        Write-Host 'Default script configuration loaded' -ForegroundColor Yellow
+        $config = [ServerConfig]::new()
     }
 
-    $conf = [ServerConfig]::new()
+    if ($values -and $values.Length -gt 0) {
+        Write-Host 'Updating script configuration with new values...' -ForegroundColor Yellow
+
+        $new_values_table = ConvertFrom-CommandLineArgs -arguments $values
+
+        [string[]]$properties = [ServerConfig].GetProperties() | Select-Object -ExpandProperty Name
+
+        foreach ($key in $new_values_table.Keys) {
+            if ($properties.Contains($key)) {
+                $config.$key = $new_values_table[$key]
+            }
+            else {
+                Write-Host "This property does not belong to script configuration: $key" -ForegroundColor Yellow
+            }
+        }
+    }
 
     try {
-        Write-Configuration -path $path -object $conf
+        Write-ScriptConfiguration -path $path -object $config
+
+        Write-Host 'Script configuration updated' -ForegroundColor Green
     }
     catch {
-        Write-Error "Failed to save configuration:`n$($_.Exception.Message)"
+        Write-Host "Failed to save script configuration: $_"
     }
-
-    return $conf
 }
 
-function Read-Configuration {
+function Read-ScriptConfiguration {
     param(
         [string]$path
     )
 
-    $json = Get-Content -Path $path -Raw -Encoding utf8 -ErrorAction Stop
+    Write-Host "Reading script configuration from path '$path'..." 
+
+    $json = Get-Content -Path $path -Raw -Encoding utf8
 
     [ServerConfig]$object = ConvertFrom-Json $json
-
-    if (!$object) {
-        throw 'Configuration is null'
-    }
 
     return $object
 }
 
-function Write-Configuration {
+function Write-ScriptConfiguration {
     param(
         [string]$path,
         [ServerConfig]$object
     )
+
+    write-host "Saving script configuration at path '$path'..."
 
     $json = ConvertTo-Json $object
 
@@ -442,6 +464,10 @@ function Update-Server {
         [string]$cmd_script_path,
         [bool]$clear
     )
+
+    if (!(Test-Path $cmd_script_path)) {
+        throw "SteamCMD script was not found! Make sure it's located at '$cmd_script_path' and try updating server again!"
+    }
 
     $managedfolder_path = Join-Path -Path $path -ChildPath 'RustDedicated_Data' -AdditionalChildPath 'Managed'
 
@@ -683,20 +709,18 @@ if ($Update) {
     $UpdateServer = $UpdateOxide = $true
 }
 
-[ServerConfig]$script_configuration = Get-Configuration -path $ConfigPath
+Update-ScriptConfiguration -path $ConfigPath -values $ConfigValues -outvariable 'script_configuration'
 
-if ($ConfigValues) {
-    $script_configuration = Update-Configuration -current $script_configuration -new $ConfigValues
-}
-
-if ($ServerCfgValues) {
-    $identity = $script_configuration.identity
-
-    Update-ServerCfg -server_path $ServerPath -server_identity $identity -new_values $ServerCfgValues
-}
+Update-ServerCfg -server_path $ServerPath -server_identity $script_configuration.identity -new_values $ServerCfgValues
 
 if ($UpdateServer) {
-    Update-Server -path $ServerPath -cmd_path $SteamCmdPath -cmd_script_path $SteamCmdScriptPath -clear $CleanUpdate
+    try {
+        Update-Server -path $ServerPath -cmd_path $SteamCmdPath -cmd_script_path $SteamCmdScriptPath -clear $CleanUpdate
+    }
+    catch {
+        Write-Host $_ -ForegroundColor Red
+        exit $exit_codes.steamcmd_script_not_found
+    }
 }
 
 if ($UpdateOxide) {
