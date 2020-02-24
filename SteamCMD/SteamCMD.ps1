@@ -328,7 +328,7 @@ function Install-App {
         [switch]$validate
     )
 
-    $launchargs = "$(Get-Login $login $password $steamguard) +force_install_dir $dir +app_update $id"
+    $launchargs = "$(Get-Login $login $password $steamguard) +force_install_dir `"$dir`" +app_update $id"
 
     if ($branch) {
         $launchargs += " -beta $branch"
