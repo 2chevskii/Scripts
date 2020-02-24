@@ -1,10 +1,18 @@
 #!/usr/bin/env pwsh
 
+#region Usings
+
+using namespace System.Linq
+using namespace System.Management.Automation.Host
 using namespace System
 using namespace System.Linq
 using namespace System.Text
 using namespace System.Text.RegularExpressions
 using namespace System.Management.Automation.Host
+
+#endregion
+
+#region Input parameters
 
 [CmdletBinding(PositionalBinding, DefaultParameterSetName = 'NIA')]
 param (
@@ -55,6 +63,8 @@ param (
     [Alias('servercfg')]
     [string[]]$ServerCfgValues
 )
+
+#endregion
 
 #region Config class
 
@@ -624,6 +634,8 @@ function Get-UserInput {
 
 #endregion
 
+#region Wipe
+
 function Invoke-Wipe {
     param(
         [string]$path,
@@ -662,6 +674,10 @@ function Invoke-Wipe {
     Write-Host 'Wipe completed' -ForegroundColor Green
 }
 
+#endregion
+
+#region Script body
+
 if ($Update) {
     $UpdateServer = $UpdateOxide = $true
 }
@@ -693,3 +709,5 @@ if ($Wipe) {
 if ($Start) {
     Start-Server -path $ServerPath -config $script_configuration -autorestart $Autorestart
 }
+
+#endregion
