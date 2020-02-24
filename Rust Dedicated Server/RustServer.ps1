@@ -1,9 +1,10 @@
 #!/usr/bin/env pwsh
 
-using namespace System.Linq
-using namespace System.Management.Automation.Host
 using namespace System
+using namespace System.Linq
 using namespace System.Text
+using namespace System.Text.RegularExpressions
+using namespace System.Management.Automation.Host
 
 [CmdletBinding(PositionalBinding, DefaultParameterSetName = 'NIA')]
 param (
@@ -269,98 +270,102 @@ function ConvertFrom-CommandLineArgs {
 #region Server.cfg update
 
 function Read-ServerCfg {
-    param(
+    param (
         [string]$server_path,
         [string]$server_identity
     )
 
+    $config_table = @{ }
+    
     $servercfg_path = Join-Path -Path $server_path -ChildPath 'server' -AdditionalChildPath $server_identity, 'cfg', 'server.cfg'
 
-    Write-Output "Reading server.cfg from $servercfg_path"
-
-    [hashtable]$tbl = @{ }
-
-    Write-Warning $tbl.GetType().name
-
     if (!(Test-Path $servercfg_path)) {
-        return $tbl
+        Write-Output "No current config found at path '$servercfg_path'"
+        return $config_table
     }
 
-    $content = Get-Content -Path $servercfg_path -Encoding utf8
+    Write-Output "Reading server '$server_identity' server.cfg file"
 
-    foreach ($line in $content) {
-        if ([string]::IsNullOrEmpty($line)) {
-            continue
+    $lines = Get-Content $servercfg_path
+
+    $argument_regex = [regex]::new('^(?<cmd>(?:[a-z_]+\.)?[a-z_]+)\s+(?<arg>\b[a-z\-_:;\/\\\.,0-9]+\b|".*")\s*$', [RegexOptions]::Multiline -bor [RegexOptions]::IgnoreCase)
+
+    foreach ($line in $lines) {
+        $matcharr = $argument_regex.Matches($line)
+
+        foreach ($match in $matcharr) {
+            $k = $match.Groups['cmd'].Value
+            $v = $match.Groups['arg'].Value.Trim('"')
+
+            $config_table[$k] = $v
         }
-        $arr = $line.Split(' ').Where( { ![string]::IsNullOrEmpty($_) })
-
-        if ($arr.Length -lt 2) {
-            continue
-        }
-
-        $k = $arr[0].Trim()
-        $v = $arr[1].Trim()
-
-        if ($v.StartsWith('"') -and $v.EndsWith('"')) {
-            $v = $v.Trim('"')
-        }
-
-        $tbl[$k] = $v
     }
 
-    Write-Warning $tbl.GetType().name
-
-    $tbl | Format-List
-
-    return $tbl
+    return $config_table
 }
 
 function Write-ServerCfg {
-    param(
-        [string]$server_path,
-        [string]$server_identity,
-        [hashtable]$values
-    )
-
-    $cfg_folder_path = Join-Path -Path $server_path -ChildPath 'server' -AdditionalChildPath $server_identity, 'cfg'
-
-    $servercfg_path = Join-Path -Path $cfg_folder_path -ChildPath 'server.cfg'
-
-    Write-Output "Writing server.cfg at $servercfg_path"
-
-    $strValues = ''
-
-    foreach ($key in $values) {
-        $strValue = "$key $($values[$key])"
-
-        $strValues += $strValue + "`n"
-    }
-
-    if (!(Test-Path $cfg_folder_path)) {
-        New-Item -ItemType Directory -Path $cfg_folder_path
-    }
-
-    Out-File -FilePath $servercfg_path -Encoding utf8 -InputObject $strValues -Force
-}
-
-function Update-ServerCfg {
     param (
         [string]$server_path,
         [string]$server_identity,
-        [hashtable]$values
+        [hashtable]$server_cfg
     )
 
-    Write-Output 'Updating server.cfg...'
+    $servercfg_path = Join-Path -Path $server_path -ChildPath 'server' -AdditionalChildPath $server_identity, 'cfg', 'server.cfg'
 
-    $oldcfg = Read-ServerCfg -server_path $server_path -server_identity $server_identity
+    Write-Output "Writing updated server.cfg to '$servercfg_path'"
 
-    foreach ($key in $oldcfg.Keys) {
-        $values[$key] = $oldcfg[$key]
+    if (!(Test-Path $servercfg_path)) {
+        New-Item -Path $servercfg_path -ItemType File -Force
     }
 
-    Write-ServerCfg -server_path $server_path -server_identity $server_identity -values $values
+    $contents_to_write = [string]::Empty
 
-    Write-Output 'Server.cfg updated!'
+    foreach ($key in $server_cfg.Keys) {
+        $value = $server_cfg[$key]
+
+        if ($value.GetType() -eq [string] -and $value.Contains(' ')) {
+            $value = "`"$value`""
+        }
+
+        $contents_to_write += "$key $value`n"
+    }
+
+    $contents_to_write | Out-File -FilePath $servercfg_path -Encoding utf8 -Force -NoNewline
+}
+
+function Update-ServerCfg {
+    param(
+        [string]$server_path,
+        [string]$server_identity,
+        [string[]]$new_values
+    )
+
+    if (!$new_values -or $new_values.Length -lt 1) {
+        return
+    }
+
+    #Write-Output "Updating server.cfg with: $(Join-String -InputObject $new_values -Separator ', ' -OutputPrefix '[' -OutputSuffix ']' -SingleQuote)"
+
+    Write-Output 'Updating server.cfg'
+
+    $current_config = Read-ServerCfg -server_identity $server_identity -server_path $server_path
+
+    $new_config = ConvertFrom-CommandLineArgs -arguments $new_values
+
+    $merged_config = @{ }
+
+    for ($i = 0; $i -lt $current_config.keys.Count; $i++) {
+        $merged_config[$current_config.keys[$i]] = $current_config.values[$i] # I DONT FUCKING KNOW, WHY THIS IS THE ONLY GODDAMN THING THAT WORKS, OK?
+    }
+
+    foreach ($key in $new_config.keys) {
+        $merged_config[$key] = $new_config[$key]
+    }
+
+    Write-ServerCfg -server_path $server_path -server_identity $server_identity -server_cfg $merged_config
+
+    Write-Output "Updated server.cfg for server '$server_identity'"
 }
 
 #endregion
@@ -670,7 +675,7 @@ if ($ConfigValues) {
 if ($ServerCfgValues) {
     $identity = $script_configuration.identity
 
-    Update-ServerCfg -server_path $ServerPath -server_identity $identity -values (ConvertFrom-CommandLineArgs $ServerCfgValues)
+    Update-ServerCfg -server_path $ServerPath -server_identity $identity -new_values $ServerCfgValues
 }
 
 if ($UpdateServer) {
