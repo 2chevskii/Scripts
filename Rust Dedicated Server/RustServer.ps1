@@ -68,7 +68,7 @@ param (
 
 #region Constants
 
-$exit_codes = @{
+$exit_codes = @{                        ## Gonna utilize these later in the future
     success                 = 0b0
     generic                 = 0b1
     configuration_load_fail = 0b10
@@ -152,7 +152,7 @@ Write-Host $script_repository -ForegroundColor DarkBlue
 
 #endregion
 
-#region Script configuration
+#region Script configuration update
 
 function Update-ScriptConfiguration {
     param (
@@ -234,67 +234,6 @@ function Write-ScriptConfiguration {
     $json = ConvertTo-Json $object
 
     Out-File -FilePath $path -Encoding utf8 -Force -InputObject $json
-}
-
-#endregion
-
-#region Convert cmdline arguments
-
-# Converts hashtable to line formatted as '+key value +key value ...'
-function ConvertTo-LaunchArgs {
-    param(
-        [hashtable]$arguments
-    )
-
-    $keys = [Enumerable]::ToArray([object[]]$arguments.Keys)
-    $strArgs = ''
-    for ($i = 0; $i -lt $keys.Count; $i++) {
-        $strArgs += '+' + $keys[$i] + ' ' #+ $arguments[$keys[$i]]
-
-        $arg = $arguments[$keys[$i]]
-
-        if ($arg.GetType() -eq [string] -and $arg.Contains(' ')) {
-            $strArgs += '"' + $arg + '"'
-        }
-        elseif ($arg.GetType() -eq [bool]) {
-            $strArgs += $arg.ToString().ToLower()
-        }
-        else {
-            $strArgs += $arg
-        }
-
-        if ($i -ne $keys.Count - 1) {
-            $strArgs += ' '
-        }
-    }
-
-    return $strArgs
-}
-
-# Converts line formatted as 'key=value, key=value ...' to a hashtable
-function ConvertFrom-CommandLineArgs {
-    param (
-        [string[]]$arguments
-    )
-
-    $tbl = @{ }
-
-    foreach ($arg in $arguments) {
-        $index = $arg.indexof('=')
-
-        if ($index -eq -1) {
-            Write-Warning "Unrecognized argument: $arg"
-            continue
-        }
-
-        $k = $arg.substring(0, $index).trim()
-        $v = $arg.substring($index + 1).trim(@(' ', '"', "'"))
-
-
-        $tbl[$k] = $v
-    }
-
-    return $tbl
 }
 
 #endregion
@@ -399,6 +338,67 @@ function Update-ServerCfg {
     Write-ServerCfg -server_path $server_path -server_identity $server_identity -server_cfg $merged_config
 
     Write-host "Server.cfg updated successfully!" -ForegroundColor Green
+}
+
+#endregion
+
+#region Convert cmdline arguments
+
+# Converts hashtable to line formatted as '+key value +key value ...'
+function ConvertTo-LaunchArgs {
+    param(
+        [hashtable]$arguments
+    )
+
+    $keys = [Enumerable]::ToArray([object[]]$arguments.Keys)
+    $strArgs = ''
+    for ($i = 0; $i -lt $keys.Count; $i++) {
+        $strArgs += '+' + $keys[$i] + ' ' #+ $arguments[$keys[$i]]
+
+        $arg = $arguments[$keys[$i]]
+
+        if ($arg.GetType() -eq [string] -and $arg.Contains(' ')) {
+            $strArgs += '"' + $arg + '"'
+        }
+        elseif ($arg.GetType() -eq [bool]) {
+            $strArgs += $arg.ToString().ToLower()
+        }
+        else {
+            $strArgs += $arg
+        }
+
+        if ($i -ne $keys.Count - 1) {
+            $strArgs += ' '
+        }
+    }
+
+    return $strArgs
+}
+
+# Converts line formatted as 'key=value, key=value ...' to a hashtable
+function ConvertFrom-CommandLineArgs {
+    param (
+        [string[]]$arguments
+    )
+
+    $tbl = @{ }
+
+    foreach ($arg in $arguments) {
+        $index = $arg.indexof('=')
+
+        if ($index -eq -1) {
+            Write-Warning "Unrecognized argument: $arg"
+            continue
+        }
+
+        $k = $arg.substring(0, $index).trim()
+        $v = $arg.substring($index + 1).trim(@(' ', '"', "'"))
+
+
+        $tbl[$k] = $v
+    }
+
+    return $tbl
 }
 
 #endregion
@@ -714,13 +714,7 @@ Update-ScriptConfiguration -path $ConfigPath -values $ConfigValues -outvariable 
 Update-ServerCfg -server_path $ServerPath -server_identity $script_configuration.identity -new_values $ServerCfgValues
 
 if ($UpdateServer) {
-    try {
-        Update-Server -path $ServerPath -cmd_path $SteamCmdPath -cmd_script_path $SteamCmdScriptPath -clear $CleanUpdate
-    }
-    catch {
-        Write-Host $_ -ForegroundColor Red
-        exit $exit_codes.steamcmd_script_not_found
-    }
+    Update-Server -path $ServerPath -cmd_path $SteamCmdPath -cmd_script_path $SteamCmdScriptPath -clear $CleanUpdate
 }
 
 if ($UpdateOxide) {
