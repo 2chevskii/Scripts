@@ -290,11 +290,11 @@ function Read-ServerCfg {
     $servercfg_path = Join-Path -Path $server_path -ChildPath 'server' -AdditionalChildPath $server_identity, 'cfg', 'server.cfg'
 
     if (!(Test-Path $servercfg_path)) {
-        Write-Output "No current config found at path '$servercfg_path'"
+        Write-Host "No current config found at path '$servercfg_path'" -ForegroundColor DarkYellow
         return $config_table
     }
 
-    Write-Output "Reading server '$server_identity' server.cfg file"
+    Write-Host "Reading server '$server_identity' server.cfg file" -ForegroundColor Yellow
 
     $lines = Get-Content $servercfg_path
 
@@ -323,7 +323,7 @@ function Write-ServerCfg {
 
     $servercfg_path = Join-Path -Path $server_path -ChildPath 'server' -AdditionalChildPath $server_identity, 'cfg', 'server.cfg'
 
-    Write-Output "Writing updated server.cfg to '$servercfg_path'"
+    Write-Host "Writing updated server.cfg to '$servercfg_path'" -ForegroundColor Yellow
 
     if (!(Test-Path $servercfg_path)) {
         New-Item -Path $servercfg_path -ItemType File -Force
@@ -355,27 +355,28 @@ function Update-ServerCfg {
         return
     }
 
-    #Write-Output "Updating server.cfg with: $(Join-String -InputObject $new_values -Separator ', ' -OutputPrefix '[' -OutputSuffix ']' -SingleQuote)"
-
-    Write-Output 'Updating server.cfg'
+    Write-Host "Updating server.cfg for '$server_identity'" -ForegroundColor Yellow
 
     $current_config = Read-ServerCfg -server_identity $server_identity -server_path $server_path
 
     $new_config = ConvertFrom-CommandLineArgs -arguments $new_values
 
-    $merged_config = @{ }
-
-    for ($i = 0; $i -lt $current_config.keys.Count; $i++) {
-        $merged_config[$current_config.keys[$i]] = $current_config.values[$i] # I DONT FUCKING KNOW, WHY THIS IS THE ONLY GODDAMN THING THAT WORKS, OK?
-    }
+    $merged_config = $current_config.Clone()
 
     foreach ($key in $new_config.keys) {
         $merged_config[$key] = $new_config[$key]
     }
 
+    Write-Host "Old server.cfg:" -ForegroundColor Black -BackgroundColor Yellow
+    $current_config | Format-Table @{Expression = { $_.Key }; Label = 'Command'; Width = 25 }, @{Expression = { $_.Value }; Label = 'Argument' }
+    Write-Host "New server.cfg:" -BackgroundColor Blue -ForegroundColor Black
+    $new_config | Format-Table @{Expression = { $_.Key }; Label = 'Command'; Width = 25 }, @{Expression = { $_.Value }; Label = 'Argument' }
+    write-host "Merged server.cfg:" -BackgroundColor Green -ForegroundColor Black
+    $merged_config | Format-Table @{Expression = { $_.Key }; Label = 'Command'; Width = 25 }, @{Expression = { $_.Value }; Label = 'Argument' }
+    
     Write-ServerCfg -server_path $server_path -server_identity $server_identity -server_cfg $merged_config
 
-    Write-Output "Updated server.cfg for server '$server_identity'"
+    Write-host "Server.cfg updated successfully!" -ForegroundColor Green
 }
 
 #endregion
