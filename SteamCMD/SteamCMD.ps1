@@ -29,7 +29,7 @@ param (
 
     ## Steamcmd executable
     [Parameter(ParameterSetName = 'LocalInstall', Position = 2)]
-    [string]$InstallPath = "$PSScriptRoot/steamcmd",
+    [string]$InstallPath,
     [Parameter(ParameterSetName = 'GlobalInstall', Mandatory = $true)]
     [Alias('g')]
     [ValidateScript( { $IsLinux }, ErrorMessage = "GlobalInstall option is only available while using Linux-based OS!")]
@@ -414,14 +414,17 @@ function Write-Console {
 ########### Entry point ###########
 ###################################
 
+#region Welcome screen
 
-
-
-
-Write-Console "$script_name <darkyellow>$script_version_formatted</darkyellow> by <magenta>$script_author</magenta>"
+[Console]::WriteLine($script_banner)
+Write-Console "Author                         -> <magenta>$script_author</magenta>"
+Write-Console "Version                        -> <darkyellow>$script_version_formatted</darkyellow>"
 Write-Console "Licensed under the $script_license_name -> <blue>$script_license_link</blue>"
 Write-Console "Repository                     -> <blue>$script_repository</blue>"
 
+#endregion
+
+#region Mics checks
 
 ######## Check PS version #########
 if ($PSVersionTable.PSEdition -ne 'Core') {
