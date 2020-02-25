@@ -1,5 +1,8 @@
 #!/usr/bin/env pwsh
 
+using namespace System
+using namespace System.Text.RegularExpressions
+
 <#
 .SYNOPSIS
     Invokes steamcmd actions
@@ -52,31 +55,26 @@ param (
     [string]$SteamGuard
 )
 
-#region WELCOME SCREEN
+#region Constants
 
 $script_name = 'SteamCMD helper'
 $script_author = '2CHEVSKII'
 $script_version = @{
     major = 2
-    minor = 1
-    patch = 1
+    minor = 2
+    patch = 0
 }
 $script_version_formatted = "v$($script_version.major).$($script_version.minor).$($script_version.patch)"
+$script_license_name = 'MIT LICENSE'
 $script_license_link = 'https://www.tldrlegal.com/l/mit'
 $script_repository = 'https://github.com/2chevskii/Scripts'
+$script_banner = @"
+ ___ _                  ___ __  __ ___    _  _ ___ _    ___ ___ ___ 
+/ __| |_ ___ __ _ _ __ / __|  \/  |   \  | || | __| |  | _ \ __| _ \
+\__ \  _/ -_) _`` | '  \ (__| |\/| | |) | | __ | _|| |__|  _/ _||   /
+|___/\__\___\__,_|_|_|_\___|_|  |_|___/  |_||_|___|____|_| |___|_|_\
 
-Write-Host "$script_name " -NoNewline
-Write-Host "$script_version_formatted " -NoNewline -ForegroundColor DarkYellow
-Write-Host 'by ' -NoNewline
-Write-Host $script_author -ForegroundColor Magenta
-Write-Host 'Licensed under the MIT License: ' -NoNewline
-Write-Host $script_license_link -ForegroundColor Blue
-Write-Host 'Source repository: ' -NoNewline
-Write-Host $script_repository -ForegroundColor DarkBlue
-
-#endregion
-
-#region Constants
+"@
 
 $steamcmd_downloadlink = @{
     windows = 'https://steamcdn-a.akamaihd.net/client/installer/steamcmd.zip'
@@ -98,19 +96,6 @@ enum OSVer {
 #endregion
 
 #region Functions
-
-function Write-Colored {
-    param(
-        [string]$msg,
-        [System.ConsoleColor]$color
-    )
-
-    $defcolor = $Host.UI.RawUI.ForegroundColor
-
-    $Host.UI.RawUI.ForegroundColor = $color
-    Write-Output $msg
-    $Host.UI.RawUI.ForegroundColor = $defcolor
-}
 
 function Get-OsRelease {
     if ($IsWindows) {
@@ -353,14 +338,73 @@ function Install-App {
     $exec_path = if (!$steamcmdpath) { 'steamcmd' } elseif ($os -eq [OSVer]::WINDOWS) { Join-Path -Path $steamcmdpath -ChildPath 'steamcmd.exe' } else { Join-Path -Path $steamcmdpath -ChildPath 'steamcmd' }
 
     try {
-        Write-Colored -msg "$([string][char]8252) Installing app $id into '$dir'" -color Yellow
+        Write-Console "App <yellow>$id</yellow> installation requested"
 
         Start-Process -FilePath $exec_path -ArgumentList "$launchargs" -NoNewWindow -Wait -ErrorAction Stop -PassThru
         
-        Write-Colored -msg "$([string][char]8730) App $id installed" -color Green
+        Write-Console  "App <green>$id</green> installation process finished: <blue>$LASTEXITCODE</blue>"
     }
     catch {
-        Write-Colored -msg "App $id failed to install:`n$($_.Exception.Message)" -color Red
+        Write-Console "<red>App $id installation process failed:`n$($_.Exception)</red>"
+    }
+}
+
+
+
+#endregion
+
+#region Helper functions
+
+function Write-Console {
+    param(
+        [Alias('m', 'msg', 'text')]
+        [Parameter(Position = 0, ValueFromPipeline, Mandatory)]
+        [string]$message
+    )
+    
+    $default_color = [Console]::ForegroundColor
+
+    $color_regex_pattern = '(?:<([a-z]+)>(.*)<\/\1>)|((?:(?!<([a-z]+)>.*<\/\4>).)+)'
+
+    $color_regex = [regex]::new($color_regex_pattern, [RegexOptions]::IgnoreCase)
+
+    $mtchs = $color_regex.Matches($message)
+
+    if ($mtchs.Count -gt 0) {
+
+        $colored = @()
+
+        foreach ($match in $mtchs) {
+            $color = $default_color
+            $msg = $null
+            if ($match.Groups[3].Length -gt 0) {
+                $msg = $match.Groups[3].Value
+            }
+            else {
+                $color = $match.Groups[1].Value
+                $msg = $match.Groups[2].Value
+            }
+
+            $colored += @{
+                color   = $color
+                message = $msg
+            }
+        }
+
+        foreach ($colored_message in $colored) {
+            if ($colored_message.color) {
+                [Console]::ForegroundColor = $colored_message.color
+            }
+
+            [Console]::Write($colored_message.message)
+
+            [Console]::ForegroundColor = $default_color
+        }
+
+        [Console]::Write("`n")
+    }
+    else {
+        [Console]::WriteLine($message)
     }
 }
 
@@ -369,6 +413,15 @@ function Install-App {
 ###################################
 ########### Entry point ###########
 ###################################
+
+
+
+
+
+Write-Console "$script_name <darkyellow>$script_version_formatted</darkyellow> by <magenta>$script_author</magenta>"
+Write-Console "Licensed under the $script_license_name -> <blue>$script_license_link</blue>"
+Write-Console "Repository                     -> <blue>$script_repository</blue>"
+
 
 ######## Check PS version #########
 if ($PSVersionTable.PSEdition -ne 'Core') {
@@ -394,7 +447,9 @@ if ($AppID -and !$AppInstallPath) {
 
 #region Install steamcmd
 
-Write-Colored -msg "$([string][char]8252) Steamcmd installation check" -color Yellow
+$pathmsg = $GlobalInstall ? 'global' : $InstallPath
+
+Write-Console "<yellow>Steamcmd installation check</yellow>    -> [<blue>$pathmsg</blue>]"
 
 if ($GlobalInstall) {
     Get-OsRelease | Install-Global
@@ -403,7 +458,7 @@ else {
     Get-OsRelease | Install-Local -path $InstallPath
 }
 
-Write-Colored -msg "$([string][char]8730) Steamcmd installed" -color Green
+Write-Console '<green>Steamcmd installed</green>'
 
 #endregion
 
@@ -416,3 +471,4 @@ if ($AppID) {
 }
 
 #endregion
+
