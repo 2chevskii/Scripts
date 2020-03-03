@@ -3,13 +3,15 @@
 using namespace System
 using namespace System.Text.RegularExpressions
 
+#region Script parameters
+
 <#
 .SYNOPSIS
     Invokes steamcmd actions
 .DESCRIPTION
     You can install steamcmd and apps using this script
 .EXAMPLE
-    SteamCMD.ps1 ./steamcmdfolder 258550 ./rust-ds -validate
+    SteamCMD.ps1 258550 ./rust-ds ./steamcmdfolder -validate
     Install Rust dedicated server into rust-ds/ folder using steamcmd executable from steamcmdfolder/
 .LINK
     https://github.com/2chevskii/Scripts/blob/master/SteamCMD.ps1
@@ -55,9 +57,11 @@ param (
     [string]$SteamGuard
 )
 
+#endregion
+
 #region Constants
 
-$script_name = 'SteamCMD helper'
+$script_name = 'SteamCMD HELPER'
 $script_author = '2CHEVSKII'
 $script_version = @{
     major = 2
@@ -68,14 +72,8 @@ $script_version_formatted = "v$($script_version.major).$($script_version.minor).
 $script_license_name = 'MIT LICENSE'
 $script_license_link = 'https://www.tldrlegal.com/l/mit'
 $script_repository = 'https://github.com/2chevskii/Scripts'
-$script_banner = @"
- ___ _                  ___ __  __ ___    _  _ ___ _    ___ ___ ___ 
-/ __| |_ ___ __ _ _ __ / __|  \/  |   \  | || | __| |  | _ \ __| _ \
-\__ \  _/ -_) _`` | '  \ (__| |\/| | |) | | __ | _|| |__|  _/ _||   /
-|___/\__\___\__,_|_|_|_\___|_|  |_|___/  |_||_|___|____|_| |___|_|_\
 
-"@
-
+$steamcmd_installpath_default = Join-Path -Path $PWD -ChildPath 'steamcmd'
 $steamcmd_downloadlink = @{
     windows = 'https://steamcdn-a.akamaihd.net/client/installer/steamcmd.zip'
     linux   = 'https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz'
@@ -95,39 +93,7 @@ enum OSVer {
 
 #endregion
 
-#region Functions
-
-function Get-OsRelease {
-    if ($IsWindows) {
-        return [OSVer]::WINDOWS
-    }
-
-    if ($IsMacOS) {
-        return [OSVer]::MACOS
-    }
-
-    $os_release = Get-Content -Path '/etc/os-release' -ErrorAction SilentlyContinue
-
-    if (!$os_release) {
-        return [OSVer]::NOT_SUPPORTED
-    }
-
-    $name = $os_release[0]
-
-    if ($name -like '*ubuntu*') {
-        return [OSVer]::DEBIAN_UBUNTU
-    }
-
-    if ($name -like '*redhat*' -or $name -like '*centos*') {
-        return [OSVer]::REDHAT_CENTOS
-    }
-
-    if ($name -like '*arch*') {
-        return [OSVer]::ARCH
-    }
-
-    return [OSVer]::NOT_SUPPORTED
-}
+#region Main functions
 
 function Install-Global {
     param(
@@ -139,29 +105,33 @@ function Install-Global {
         throw 'Repository install is only available in Linux systems!'
     }
 
-    switch ($os) {
-        [OSVer]::DEBIAN_UBUNTU {
-            if ($is64bit) {
-                &sudo add-apt-repository multiverse
-                &sudo dpkg --add-architecture i386
-                &sudo apt update
-                &sudo apt install lib32gcc1 steamcmd
+    if (!(Get-Command -Name 'steamcmd')) {
+        Write-Console '<yellow>Installing steamcmd globally</yellow>'
+
+        switch ($os) {
+            [OSVer]::DEBIAN_UBUNTU {
+                if ($is64bit) {
+                    &sudo add-apt-repository multiverse
+                    &sudo dpkg --add-architecture i386
+                    &sudo apt update
+                    &sudo apt install lib32gcc1 steamcmd
+                }
+                else {
+                    &sudo apt install steamcmd
+                }
             }
-            else {
-                &sudo apt install steamcmd
+            [OSVer]::REDHAT_CENTOS {
+                &yum install steamcmd
             }
-        }
-        [OSVer]::REDHAT_CENTOS {
-            &yum install steamcmd
-        }
-        [OSVer]::ARCH {
-            &git clone https://aur.archlinux.org/steamcmd.git
-            Set-Location steamcmd
-            &makepkg -si
-            &ln -s /usr/games/steamcmd steamcmd
-        }
-        default {
-            throw 'Your OS does not support repository installation, try another options!'
+            [OSVer]::ARCH {
+                &git clone https://aur.archlinux.org/steamcmd.git
+                Set-Location steamcmd
+                &makepkg -si
+                &ln -s /usr/games/steamcmd steamcmd
+            }
+            default {
+                throw 'Your OS does not support repository installation, try another options!'
+            }
         }
     }
 }
@@ -272,30 +242,6 @@ function Install-Local {
     }
 }
 
-function Get-Login {
-    param(
-        [Parameter(Position = 0)]
-        [string]$login,
-        [Parameter(Position = 1)]
-        [string]$password,
-        [Parameter(Position = 2)]
-        [string]$steamguard
-    )
-    $creds = '+login'
-
-    if (!$login) {
-        return $creds + ' anonymous'
-    }
-
-    $creds += " $login $password"
-    
-    if ($steamguard) {
-        $creds += " $steamguard"
-    }
-    
-    return $creds
-}
-
 function Install-App {
 
     param (
@@ -313,6 +259,10 @@ function Install-App {
         [Parameter(Position = 3)]
         [switch]$validate
     )
+
+    $dir = New-Item -ItemType Directory -Path $dir -ErrorAction SilentlyContinue
+
+    write-host "dir: $dir"
 
     $launchargs = "$(Get-Login $login $password $steamguard) +force_install_dir `"$dir`" +app_update $id"
 
@@ -349,11 +299,99 @@ function Install-App {
     }
 }
 
-
-
 #endregion
 
 #region Helper functions
+
+function Get-Login {
+    param(
+        [Parameter(Position = 0)]
+        [string]$login,
+        [Parameter(Position = 1)]
+        [string]$password,
+        [Parameter(Position = 2)]
+        [string]$steamguard
+    )
+    $creds = '+login'
+
+    if (!$login) {
+        return $creds + ' anonymous'
+    }
+
+    $creds += " $login $password"
+    
+    if ($steamguard) {
+        $creds += " $steamguard"
+    }
+    
+    return $creds
+}
+
+function Get-OsRelease {
+    if ($IsWindows) {
+        return [OSVer]::WINDOWS
+    }
+
+    if ($IsMacOS) {
+        return [OSVer]::MACOS
+    }
+
+    $os_release = Get-Content -Path '/etc/os-release' -ErrorAction SilentlyContinue
+
+    if (!$os_release) {
+        return [OSVer]::NOT_SUPPORTED
+    }
+
+    $name = $os_release[0]
+
+    if ($name -like '*ubuntu*') {
+        return [OSVer]::DEBIAN_UBUNTU
+    }
+
+    if ($name -like '*redhat*' -or $name -like '*centos*') {
+        return [OSVer]::REDHAT_CENTOS
+    }
+
+    if ($name -like '*arch*') {
+        return [OSVer]::ARCH
+    }
+
+    return [OSVer]::NOT_SUPPORTED
+}
+
+function Get-Distro {
+    $os_release = Get-Content -Path '/etc/os-release'
+
+    if ($os_release) {
+        $name = $os_release[0]
+
+        if (($name -like '*ubuntu*') -or ($name -like '*debian*')) {
+            return 'UBUNTU'
+        }
+
+        if (($name -like '*redhat*') -or ($name -like '*centos*')) {
+            return 'CENTOS'
+        }
+
+        if ($name -like '*arch*') {
+            return 'ARCH'
+        }
+    }
+
+    return $null
+}
+
+function Get-Banner {
+    param(
+        [string]$scriptname
+    )
+
+    $ascii_art_generator_link_base = "http://artii.herokuapp.com/make?text="
+
+    $request_link = $ascii_art_generator_link_base + $scriptname.Replace(' ', '+')
+
+    Invoke-WebRequest -uri $request_link | Select-Object -ExpandProperty Content | Out-String
+}
 
 function Write-Console {
     param(
@@ -364,7 +402,7 @@ function Write-Console {
     
     $default_color = [Console]::ForegroundColor
 
-    $color_regex_pattern = '(?:<([a-z]+)>(.*)<\/\1>)|((?:(?!<([a-z]+)>.*<\/\4>).)+)'
+    $color_regex_pattern = '(?:<([a-z]+)>((?:(?!<\/\1>).)*)<\/\1>)|((?:(?!<([a-z]+)>.*<\/\4>).)+)'
 
     $color_regex = [regex]::new($color_regex_pattern, [RegexOptions]::IgnoreCase)
 
@@ -416,10 +454,10 @@ function Write-Console {
 
 #region Welcome screen
 
-[Console]::WriteLine($script_banner)
+Get-Banner -scriptname $script_name | Out-Host
 Write-Console "Author                         -> <magenta>$script_author</magenta>"
 Write-Console "Version                        -> <darkyellow>$script_version_formatted</darkyellow>"
-Write-Console "Licensed under the $script_license_name -> <blue>$script_license_link</blue>"
+Write-Console "Licensed under the <darkred>$script_license_name</darkred> -> <blue>$script_license_link</blue>"
 Write-Console "Repository                     -> <blue>$script_repository</blue>"
 
 #endregion
@@ -436,23 +474,23 @@ if ($GlobalInstall) {
     $InstallPath = $null
 }
 elseif (!$InstallPath) {
-    $InstallPath = "$PSScriptRoot/steamcmd"
+    $InstallPath = $steamcmd_installpath_default
 
     Write-Warning "Steamcmd install path was set automatically to '$InstallPath'"
 }
 
 ### Set app installation paths ###
 if ($AppID -and !$AppInstallPath) {
-    $AppInstallPath = "$PSScriptRoot/app-$AppID"
+    $AppInstallPath = Join-Path -Path $PWD -ChildPath "app-$AppID"
 
     Write-Warning "Application install path was set automatically to '$AppInstallPath'"
 }
 
+#endregion
+
 #region Install steamcmd
 
-$pathmsg = $GlobalInstall ? 'global' : $InstallPath
-
-Write-Console "<yellow>Steamcmd installation check</yellow>    -> [<blue>$pathmsg</blue>]"
+Write-Console "<yellow>[ ] Steamcmd installation check</yellow>"
 
 if ($GlobalInstall) {
     Get-OsRelease | Install-Global
@@ -461,16 +499,14 @@ else {
     Get-OsRelease | Install-Local -path $InstallPath
 }
 
-Write-Console '<green>Steamcmd installed</green>'
+Write-Console '<green>[x] Steamcmd installed</green>'
 
 #endregion
 
 #region Install application
 
 if ($AppID) {
-    New-Item -Path $AppInstallPath -ItemType Directory -ErrorAction SilentlyContinue | Out-Null
-    $dir = Resolve-Path $AppInstallPath
-    Install-App -id $AppID -dir $dir -branch $Branch -branchpass $BranchPassword -login $Login -password $Password -steamguard $SteamGuard -steamcmdpath $InstallPath $Validate
+    Install-App -id $AppID -dir $AppInstallPath -branch $Branch -branchpass $BranchPassword -login $Login -password $Password -steamguard $SteamGuard -steamcmdpath $InstallPath $Validate
 }
 
 #endregion
