@@ -448,28 +448,29 @@ function Write-Console {
 
 #endregion
 
-###################################
-########### Entry point ###########
-###################################
 
-#region Welcome screen
 
+
+#############################
+###### Welcome  screen ######
+#############################
 Get-Banner -scriptname $script_name | Out-Host
 Write-Console "Author                         -> <magenta>$script_author</magenta>"
 Write-Console "Version                        -> <darkyellow>$script_version_formatted</darkyellow>"
 Write-Console "Licensed under the <darkred>$script_license_name</darkred> -> <blue>$script_license_link</blue>"
 Write-Console "Repository                     -> <blue>$script_repository</blue>"
 
-#endregion
-
-#region Mics checks
-
-######## Check PS version #########
+##### Check PS version ######
 if ($PSVersionTable.PSEdition -ne 'Core') {
     Write-Warning 'This script might or might not work correctly on old PS editions. Consider updating to PowerShell Core if you are experiencing issues'
 }
 
-# Set steamcmd installation paths #
+#### Check steamcmd path ####
+
+if (!$GlobalInstall -and !$InstallPath) {
+    
+}
+
 if ($GlobalInstall) {
     $InstallPath = $null
 }
@@ -486,10 +487,6 @@ if ($AppID -and !$AppInstallPath) {
     Write-Warning "Application install path was set automatically to '$AppInstallPath'"
 }
 
-#endregion
-
-#region Install steamcmd
-
 Write-Console "<yellow>[ ] Steamcmd installation check</yellow>"
 
 if ($GlobalInstall) {
@@ -501,13 +498,6 @@ else {
 
 Write-Console '<green>[x] Steamcmd installed</green>'
 
-#endregion
-
-#region Install application
-
 if ($AppID) {
     Install-App -id $AppID -dir $AppInstallPath -branch $Branch -branchpass $BranchPassword -login $Login -password $Password -steamguard $SteamGuard -steamcmdpath $InstallPath $Validate
 }
-
-#endregion
-
