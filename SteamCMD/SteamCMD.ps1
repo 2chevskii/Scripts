@@ -1,4 +1,4 @@
-#!/usr/bin/env pwsh
+﻿#!/usr/bin/env pwsh
 
 using namespace System
 using namespace System.Linq
@@ -82,7 +82,14 @@ function Install-SteamCMD {
         [string]$installation_path
     )
 
-    $__childpath = ($IsWindows ? 'steamcmd.exe' : 'steamcmd') # I just had to do this because Codacy fucking analyser keeps complaining about the line below (╯°□°）╯︵ ┻━┻)
+    #$__childpath = ($IsWindows ? 'steamcmd.exe' : 'steamcmd') # I just had to do this because Codacy fucking analyser keeps complaining about the line below (╯°□°）╯︵ ┻━┻)
+
+    $__childpath = if ($IsWindows) {
+        # Ok... I'm done. Just take it, ok?
+        'steamcmd.exe'
+    } else {
+        'steamcmd'
+    }
 
     $exec_path = Join-Path -Path $installation_path -ChildPath $__childpath
 
