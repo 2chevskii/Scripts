@@ -53,7 +53,7 @@ param (
     [Parameter(ParameterSetName = "NIA")]
     [Alias('w')]
     [switch]$Wipe,
-    
+
     [ValidatePattern('(?:\w+|\w+\.\w+)\s*=.+', ErrorMessage = "Config values must be provided in 'key=value' format")]
     [Alias('config')]
     [string[]]$ConfigValues,
@@ -164,12 +164,10 @@ function Update-ScriptConfiguration {
 
         if (!(Test-Path $path)) {
             Write-Host "No script configuration found at path '$path'" -ForegroundColor Yellow
-        }
-        else {
+        } else {
             try {
                 $config = Read-ScriptConfiguration -path $path
-            }
-            catch {
+            } catch {
                 Write-Host "Error while loading script configuration: $_" -ForegroundColor Red
             }
         }
@@ -190,8 +188,7 @@ function Update-ScriptConfiguration {
         foreach ($key in $new_values_table.Keys) {
             if ($properties.Contains($key)) {
                 $config.$key = $new_values_table[$key]
-            }
-            else {
+            } else {
                 Write-Host "This property does not belong to script configuration: $key" -ForegroundColor Yellow
             }
         }
@@ -201,8 +198,7 @@ function Update-ScriptConfiguration {
         Write-ScriptConfiguration -path $path -object $config
 
         Write-Host 'Script configuration updated' -ForegroundColor Green
-    }
-    catch {
+    } catch {
         Write-Host "Failed to save script configuration: $_"
     }
 
@@ -214,7 +210,7 @@ function Read-ScriptConfiguration {
         [string]$path
     )
 
-    Write-Host "Reading script configuration from path '$path'..." 
+    Write-Host "Reading script configuration from path '$path'..."
 
     $json = Get-Content -Path $path -Raw -Encoding utf8
 
@@ -229,7 +225,7 @@ function Write-ScriptConfiguration {
         [ServerConfig]$object
     )
 
-    write-host "Saving script configuration at path '$path'..."
+    Write-Host "Saving script configuration at path '$path'..."
 
     $json = ConvertTo-Json $object
 
@@ -247,7 +243,7 @@ function Read-ServerCfg {
     )
 
     $config_table = @{ }
-    
+
     $servercfg_path = Join-Path -Path $server_path -ChildPath 'server' -AdditionalChildPath $server_identity, 'cfg', 'server.cfg'
 
     if (!(Test-Path $servercfg_path)) {
@@ -332,12 +328,12 @@ function Update-ServerCfg {
     $current_config | Format-Table @{Expression = { $_.Key }; Label = 'Command'; Width = 25 }, @{Expression = { $_.Value }; Label = 'Argument' }
     Write-Host "New server.cfg:" -BackgroundColor Blue -ForegroundColor Black
     $new_config | Format-Table @{Expression = { $_.Key }; Label = 'Command'; Width = 25 }, @{Expression = { $_.Value }; Label = 'Argument' }
-    write-host "Merged server.cfg:" -BackgroundColor Green -ForegroundColor Black
+    Write-Host "Merged server.cfg:" -BackgroundColor Green -ForegroundColor Black
     $merged_config | Format-Table @{Expression = { $_.Key }; Label = 'Command'; Width = 25 }, @{Expression = { $_.Value }; Label = 'Argument' }
-    
+
     Write-ServerCfg -server_path $server_path -server_identity $server_identity -server_cfg $merged_config
 
-    Write-host "Server.cfg updated successfully!" -ForegroundColor Green
+    Write-Host "Server.cfg updated successfully!" -ForegroundColor Green
 }
 
 #endregion
@@ -358,8 +354,7 @@ function ConvertTo-LaunchArgs {
 
         if ($v.GetType() -eq [string] -and $v.Contains(' ')) {
             $v = "`"$v`""
-        }
-        elseif ($v.GetType() -eq [bool]) {
+        } elseif ($v.GetType() -eq [bool]) {
             $v = $v.tostring().tolower()
         }
 
@@ -434,7 +429,7 @@ function Get-LatestOxideVersion {
     $api_link = 'https://umod.org/games/rust.json'
 
     $response = Invoke-WebRequest -Uri $api_link | Select-Object -ExpandProperty Content
-    
+
     $object = ConvertFrom-Json $response -AsHashtable
 
     return [System.Version]::new($object['latest_release_version'] + '.0')
@@ -557,8 +552,7 @@ function Start-Server {
 
     if ($IsWindows) {
         Start-Process -FilePath 'cmd.exe' -ArgumentList "/C `"RustDedicated.exe $launchargs`"" -WorkingDirectory $path  -Wait
-    }
-    else {
+    } else {
         Start-Process (Join-Path -Path $path -ChildPath 'RustDedicated') -ArgumentList $launchargs -WorkingDirectory $path -NoNewWindow -Wait
     }
 
@@ -595,8 +589,8 @@ function Wait-WithPrompt {
             $pressed = $true
             break
         }
-        
-        
+
+
         Write-Host "`r$msg ($diff s)" -NoNewline
 
         Start-Sleep -Milliseconds 200
@@ -615,7 +609,7 @@ function Get-UserInput {
     )
 
     Write-Host $msg
-    
+
     $currentinput = ''
 
     function writecurrentinput {
@@ -625,8 +619,7 @@ function Get-UserInput {
 
         if ($hidden) {
             $str += '*' * $currentinput.Length
-        }
-        else {
+        } else {
             $str += $currentinput
         }
 
@@ -644,8 +637,7 @@ function Get-UserInput {
 
         if ($null -ne $match) {
             return $match
-        }
-        else {
+        } else {
             return $currentinput
         }
     }
@@ -656,14 +648,11 @@ function Get-UserInput {
         if ($key.VirtualKeyCode -eq 13) {
             Write-Host "`n" -NoNewline
             return $currentinput
-        }
-        elseif ($key.VirtualKeyCode -eq 8) {
+        } elseif ($key.VirtualKeyCode -eq 8) {
             $currentinput = $currentinput.Substring(0, [Math]::Max(0, $currentinput.Length - 1))
-        }
-        elseif ($key.VirtualKeyCode -eq 9) {
+        } elseif ($key.VirtualKeyCode -eq 9) {
             $currentinput = tryautocomplete
-        }
-        else {
+        } else {
             $currentinput += $key.Character
         }
 
@@ -696,12 +685,12 @@ function Invoke-Wipe {
 
     if ($filesToDelete.Length -lt 1) {
         Write-Output 'No persistence files found'
-        return 
+        return
     }
 
     Write-Output "Goint to delete $($filesToDelete.Length) files:"
     $filesToDelete | Format-List | Write-Output
-    
+
     Wait-WithPrompt -msg 'Press any key to cancel wipe' -seconds 5
 
     foreach ($file in $filesToDelete) {

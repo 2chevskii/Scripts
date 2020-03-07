@@ -1,5 +1,5 @@
 @{
-    Rules = @{
+    Rules        = @{
         PSUseCompatibleSyntax = @{
             Enable         = $true
             TargetVersions = @(
@@ -7,4 +7,5 @@
             )
         }
     }
+    ExcludeRules = @('PSAvoidUsingUsernameAndPasswordParams', 'PSAvoidUsingPlainTextForPassword', 'PSAvoidUsingPositionalParameters')
 }
