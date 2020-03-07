@@ -7,5 +7,5 @@
             )
         }
     }
-    ExcludeRules = @('PSAvoidUsingUsernameAndPasswordParams', 'PSAvoidUsingPlainTextForPassword', 'PSAvoidUsingPositionalParameters')
+    ExcludeRules = @('PSAvoidUsingUsernameAndPasswordParams', 'PSAvoidUsingPlainTextForPassword', 'PSAvoidUsingPositionalParameters', 'PSUseShouldProcessForStateChangingFunctions')
 }
