@@ -6,8 +6,6 @@ using namespace System.Text.RegularExpressions
 using namespace System.Diagnostics.CodeAnalysis
 
 [CmdletBinding()]
-[SuppressMessageAttribute("PSAvoidUsingPlainTextForPassword", "password")]
-[SuppressMessageAttribute("PSAvoidUsingPlainTextForPassword", "branchpassword")]
 param (
     [Parameter(Position = 0)]
     [Alias('i', 'id', 'app')]
