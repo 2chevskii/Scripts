@@ -3,10 +3,11 @@
 using namespace System
 using namespace System.Linq
 using namespace System.Text.RegularExpressions
+using namespace System.Diagnostics.CodeAnalysis
 
 [CmdletBinding()]
-[System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingPlainTextForPassword", "password")]
-[System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingPlainTextForPassword", "branchpassword")]
+[SuppressMessageAttribute("PSAvoidUsingPlainTextForPassword", "password")]
+[SuppressMessageAttribute("PSAvoidUsingPlainTextForPassword", "branchpassword")]
 param (
     [Parameter(Position = 0)]
     [Alias('i', 'id', 'app')]
@@ -81,7 +82,7 @@ function Install-SteamCMD {
         [string]$installation_path
     )
 
-    $exec_path = Join-Path $installation_path ($IsWindows ? 'steamcmd.exe' : 'steamcmd')
+    $exec_path = Join-Path -Path $installation_path -ChildPath ($IsWindows ? 'steamcmd.exe' : 'steamcmd')
 
     if (Test-Path $exec_path) {
         Write-Console '<darkgray>Steamcmd installed already</darkgray>'
@@ -251,17 +252,18 @@ function Wait-WithPrompt {
         }
 
 
-        Write-Host "`r$msg ($diff s)" -NoNewline
+        Write-Console "`r$msg ($diff s)"
 
         Start-Sleep -Milliseconds 200
     }
 
-    Write-Host "`r"
+    Write-Console "`r"
 
     return $pressed
 }
 
 function Write-Console {
+    [SuppressMessageAttribute("PsAvoidUsingWriteHost", "")]
     param(
         [Alias('m', 'msg', 'text')]
         [Parameter(Position = 0, ValueFromPipeline, Mandatory)]
