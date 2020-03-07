@@ -82,7 +82,9 @@ function Install-SteamCMD {
         [string]$installation_path
     )
 
-    $exec_path = Join-Path -Path $installation_path -ChildPath ($IsWindows ? 'steamcmd.exe' : 'steamcmd')
+    $__childpath = ($IsWindows ? 'steamcmd.exe' : 'steamcmd') # I just had to do this because Codacy fucking analyser keeps complaining about the line below (╯°□°）╯︵ ┻━┻)
+
+    $exec_path = Join-Path -Path $installation_path -ChildPath $__childpath
 
     if (Test-Path $exec_path) {
         Write-Console '<darkgray>Steamcmd installed already</darkgray>'
