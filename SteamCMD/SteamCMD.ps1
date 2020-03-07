@@ -3,394 +3,260 @@
 using namespace System
 using namespace System.Text.RegularExpressions
 
-#region Script parameters
-
-<#
-.SYNOPSIS
-    Invokes steamcmd actions
-.DESCRIPTION
-    You can install steamcmd and apps using this script
-.EXAMPLE
-    SteamCMD.ps1 258550 ./rust-ds ./steamcmdfolder -validate
-    Install Rust dedicated server into rust-ds/ folder using steamcmd executable from steamcmdfolder/
-.LINK
-    https://github.com/2chevskii/Scripts/blob/master/SteamCMD.ps1
-#>
+[CmdletBinding()]
 [System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingPlainTextForPassword", "password")]
 [System.Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingPlainTextForPassword", "branchpassword")]
-[CmdLetBinding(DefaultParameterSetName = 'LocalInstall', PositionalBinding)]
 param (
-    ## App
     [Parameter(Position = 0)]
-    [Alias('id')]
+    [Alias('i', 'id', 'app')]
     [int]$AppID,
     [Parameter(Position = 1)]
-    [Alias('dir')]
-    [string]$AppInstallPath,
-    [switch]$Validate,
+    [ValidateNotNullOrEmpty()]
+    [ValidateScript( { $AppID })]
+    [Alias('d', 'dir', 'location')]
+    [string]$AppDir,
 
-    ## Steamcmd executable
-    [Parameter(ParameterSetName = 'LocalInstall', Position = 2)]
-    [string]$InstallPath,
-    [Parameter(ParameterSetName = 'GlobalInstall', Mandatory = $true)]
-    [Alias('g')]
-    [ValidateScript( { $IsLinux }, ErrorMessage = "GlobalInstall option is only available while using Linux-based OS!")]
-    [switch]$GlobalInstall,
-
-    ## Alternative branches
-    [Alias('b')]
-    [string]$Branch,
+    [Parameter(Position = 6)]
+    [ValidateNotNullOrEmpty()]
+    [Alias('b', 'branch')]
+    [string]$BranchName,
+    [Parameter(Position = 7)]
+    [ValidateScript( { $BranchName }, ErrorMessage = 'BranchName parameter must be specified when using BranchPassword')]
+    [Alias('bp', 'bpass', 'branchpass')]
     [string]$BranchPassword,
 
-    ## Logging in
-    [Parameter(Position = 3)]
-    [ValidatePattern('^(?!^anonymous$).*$')]
-    [Alias('username', 'user', 'l')]
+    [Alias('v')]
+    [switch]$Validate,
+
+    [Parameter(Position = 2)]
     [ValidateNotNullOrEmpty()]
+    [Alias('cmd', 'cmddir', 'steamcmd')]
+    [string]$SteamcmdDir,
+    [switch]$CleanArchive,
+
+    [Parameter(ParameterSetName = 'Authorized', Position = 3)]
+    [ValidateNotNullOrEmpty()]
+    [ValidatePattern('^(?!^anonymous$).*$', ErrorMessage = 'If you want to login as anonymous - just leave this parameter blank')]
+    [Alias('l', 'u', 'user', 'username')]
     [string]$Login,
-    [Parameter(Position = 4)]
+    [Parameter(ParameterSetName = 'Authorized', Position = 4)]
     [ValidateNotNullOrEmpty()]
     [Alias('p', 'pass')]
     [string]$Password,
-    [Parameter(Position = 5)]
+    [Parameter(ParameterSetName = 'Authorized', Position = 5)]
     [ValidateNotNullOrEmpty()]
-    [string]$SteamGuard
+    [Alias('guard', 'code')]
+    [string]$SteamGuardCode
 )
 
-#endregion
+#region Fields
 
-#region Constants
-
-$script_name = 'SteamCMD HELPER'
-$script_author = '2CHEVSKII'
-$script_version = @{
-    major = 2
-    minor = 2
-    patch = 0
+$script_info = @{
+    name           = 'SteamCMD HELPER'
+    author         = '2CHEVSKII'
+    version        = @{
+        major = 2
+        minor = 3
+        patch = 0
+    }
+    license        = 'MIT LICENSE'
+    'license-link' = 'https://www.tldrlegal.com/l/mit'
+    repository     = 'https://github.com/2chevskii/Automation'
 }
-$script_version_formatted = "v$($script_version.major).$($script_version.minor).$($script_version.patch)"
-$script_license_name = 'MIT LICENSE'
-$script_license_link = 'https://www.tldrlegal.com/l/mit'
-$script_repository = 'https://github.com/2chevskii/Scripts'
 
-$steamcmd_installpath_default = Join-Path -Path $PWD -ChildPath 'steamcmd'
-$steamcmd_downloadlink = @{
+$steamcmd_download_link = @{
     windows = 'https://steamcdn-a.akamaihd.net/client/installer/steamcmd.zip'
     linux   = 'https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz'
     macos   = 'https://steamcdn-a.akamaihd.net/client/installer/steamcmd_osx.tar.gz'
 }
 
-$is64bit = [System.Environment]::Is64BitOperatingSystem
-
-enum OSVer {
-    WINDOWS
-    MACOS
-    DEBIAN_UBUNTU
-    REDHAT_CENTOS
-    ARCH
-    NOT_SUPPORTED
-}
-
 #endregion
 
-#region Main functions
+#region Core
 
-function Install-Global {
+function Install-SteamCMD {
     param(
-        [Parameter(ValueFromPipeline)]
-        [OSVer]$os
+        [string]$installation_path
     )
 
-    if (!$IsLinux) {
-        throw 'Repository install is only available in Linux systems!'
-    }
+    $exec_path = Join-Path $installation_path ($IsWindows ? 'steamcmd.exe' : 'steamcmd')
 
-    if (!(Get-Command -Name 'steamcmd')) {
-        Write-Console '<yellow>Installing steamcmd globally</yellow>'
-
-        switch ($os) {
-            [OSVer]::DEBIAN_UBUNTU {
-                if ($is64bit) {
-                    &sudo add-apt-repository multiverse
-                    &sudo dpkg --add-architecture i386
-                    &sudo apt update
-                    &sudo apt install lib32gcc1 steamcmd
-                }
-                else {
-                    &sudo apt install steamcmd
-                }
-            }
-            [OSVer]::REDHAT_CENTOS {
-                &yum install steamcmd
-            }
-            [OSVer]::ARCH {
-                &git clone https://aur.archlinux.org/steamcmd.git
-                Set-Location steamcmd
-                &makepkg -si
-                &ln -s /usr/games/steamcmd steamcmd
-            }
-            default {
-                throw 'Your OS does not support repository installation, try another options!'
-            }
-        }
-    }
-}
-
-function Install-Local {
-    param(
-        [Parameter(ValueFromPipeline)]
-        [OSVer]$os,
-        [string]$path
-    )
-
-    if ($os -eq [OSVer]::NOT_SUPPORTED) {
-        throw 'This OS version is not supported'
-    }
-
-    if ($os -ne [OSVer]::WINDOWS -and !(Get-Command tar.exe -ErrorAction SilentlyContinue)) {
-        throw 'Tar not found'
-    }
-
-    switch ($os) {
-        WINDOWS {
-            $archive_path = Join-Path -Path $path -ChildPath 'steamcmd.zip'
-            $dl_link = $steamcmd_downloadlink.windows
-            $exec_path = Join-Path -Path $path -ChildPath 'steamcmd.exe'
-        }
-        MACOS {
-            $archive_path = Join-Path -Path $path -ChildPath 'steamcmd.tar.gz'
-            $dl_link = $steamcmd_downloadlink.macos
-            $exec_path = Join-Path -Path $path -ChildPath 'steamcmd'
-        }
-        Default {
-            $archive_path = Join-Path -Path $path -ChildPath 'steamcmd.tar.gz'
-            $dl_link = $steamcmd_downloadlink.linux
-            $exec_path = Join-Path -Path $path -ChildPath 'steamcmd'
-        }
-    }
-
-    # Test if steamcmd exists already
     if (Test-Path $exec_path) {
+        Write-Console '<darkgray>Steamcmd installed already</darkgray>'
         return
     }
 
-    # Prepare installation folder 
-    New-Item -Path $path -ItemType Directory -ErrorAction SilentlyContinue | Out-Null
+    New-Item -ItemType Directory -Path $installation_path -ErrorAction SilentlyContinue | Out-Null
+
+    $dl_link = if ($IsWindows) {
+        $steamcmd_download_link.windows
+    } elseif ($IsLinux) {
+        $steamcmd_download_link.linux
+    } else {
+        $steamcmd_download_link.macos
+    }
+
+    $arch_name = [System.Linq.Enumerable]::Last([object[]]$dl_link.Split('/'))
+
+    $arch_path = Join-Path $installation_path $arch_name
+
+    if (Test-Path $arch_path) {
+        Write-Console '<darkgray>Found an existing steamcmd archive</darkgray>'
+    } else {
+        Write-Console "[---] Downloading $arch_name"
+        Invoke-WebRequest -Uri $dl_link -OutFile $arch_path
+    }
+
+    Write-Console "[---] Extracting steamcmd archive"
 
     try {
-        Write-Output '[10%] Downloading steamcmd...'
-        Invoke-WebRequest -Uri $dl_link -OutFile $archive_path
-    }
-    catch {
-        throw 'Could not download steamcmd archive'
+        if ($IsWindows) {
+            Expand-Archive -Path $arch_path -DestinationPath $installation_path -Force -ErrorAction Stop
+        } else {
+            &tar -C $installation_path -xvzf $arch_path
+        }
+    } catch {
+        Write-Console '<red>FAIL! Could not extract steamcmd archive. Will retry in a second</red>'
+        if (Wait-WithPrompt -msg 'Press any key to cancel and exit' -seconds 3) {
+            Remove-Item $arch_path -Force
+            Install-SteamCMD -installation_path $installation_path
+            return
+        }
     }
 
-    if (!(Test-Path $archive_path)) {
-        throw 'Steamcmd archive was not downloaded for some reason'
+    if ($IsLinux) {
+        Write-Console '[---] Installing dependencies'
+        Install-Dependencies
     }
 
-    try {
-        Write-Output '[50%] Extracting archive...'
-        if ($os -eq [OSVer]::WINDOWS) {
-            
-            Expand-Archive -Path $archive_path -DestinationPath $path -Force -ErrorAction Stop
-        }
-        else {
-            &tar -C $path -xvzf $archive_path
-        }
-    }
-    catch {
-        throw 'Could not extract steamcmd archive'
-    }
-
-    try {
-        Write-Output '[75%] Installing dependencies...'
-        if ($os -eq [OSVer]::DEBIAN_UBUNTU -and $is64bit) {
-            &sudo apt-get install lib32gcc1
-        }
-        elseif ($os -eq [OSVer]::REDHAT_CENTOS -and !$is64bit) {
-            &yum install glibc libstdc++
-        }
-        elseif ($os -eq [OSVer]::REDHAT_CENTOS -and $is64bit) {
-            &yum install glibc.i686 libstdc++.i686
-        }
-    }
-    catch {
-        throw 'Could not install dependencies'
-    }
-
-    try {
-        Write-Output '[95%] Cleaning up...'
-        Remove-Item -Path $archive_path -Force
-    }
-    catch {
-        Write-Warning 'Error occured while cleaning up temp files'
-    }
-
-    if (!(Test-Path -Path $exec_path)) {
-        throw 'Cannot find steamcmd executable'
-    }
-
-    if ($os -ne [OSVer]::WINDOWS) {
-        try {
-            Write-Output '[99%] Setting executable mode...'
-            &sudo chmod +x $exec_path
-        }
-        catch {
-            Write-Warning 'Could not set steamcmd as executable'
-        }
+    if ($CleanArchive) {
+        Write-Console '[---] Deleting downloaded archive'
+        Remove-Item $arch_path -Force
     }
 }
 
-function Install-App {
-
+function Install-Application {
     param (
-        [Parameter(Mandatory, Position = 0)]
-        [string]$id,
-        [Parameter(Position = 1, Mandatory)]
-        [string]$dir,
-        [string]$branch,
-        [string]$branchpass,
-        [string]$login,
-        [string]$password,
-        [string]$steamguard,
-        [Parameter(Position = 2)]
-        [string]$steamcmdpath,
-        [Parameter(Position = 3)]
-        [switch]$validate
+        $dir,
+        $id,
+        $branch_name,
+        $branch_pass,
+        $username,
+        $pass,
+        $steamguard,
+        $steamcmd_dir,
+        $val
     )
 
-    $dir = New-Item -ItemType Directory -Path $dir -ErrorAction SilentlyContinue
+    $launchargs = Get-AuthInfo -username $username -userpass $pass -steamgrd $steamguard
+    $launchargs += " +force_install_dir $((Force-Resolve-Path -FileName $dir)) +app_update $id"
 
-    write-host "dir: $dir"
+    if ($branch_name) {
+        $launchargs += " -beta $branch_name"
 
-    $launchargs = "$(Get-Login $login $password $steamguard) +force_install_dir `"$dir`" +app_update $id"
-
-    if ($branch) {
-        $launchargs += " -beta $branch"
+        if ($branch_pass) {
+            $launchargs += " -betapassword $branch_pass"
+        }
     }
 
-    if ($branchpass) {
-        $launchargs += " -betapassword $branchpass"
-    }
-
-    if ($validate) {
-        $launchargs += ' -validate'
+    if ($val) {
+        $launchargs += " -validate"
     }
 
     $launchargs += ' +quit'
-    $os = Get-OsRelease
 
-    if ($os -eq [OSVer]::NOT_SUPPORTED) {
-        throw 'OS is not supported'
+    $executable = if ($IsWindows) {
+        'steamcmd.exe'
+    } else {
+        'steamcmd'
     }
 
-    $exec_path = if (!$steamcmdpath) { 'steamcmd' } elseif ($os -eq [OSVer]::WINDOWS) { Join-Path -Path $steamcmdpath -ChildPath 'steamcmd.exe' } else { Join-Path -Path $steamcmdpath -ChildPath 'steamcmd' }
+    $process_path = Join-Path $steamcmd_dir $executable
 
-    try {
-        Write-Console "App <yellow>$id</yellow> installation requested"
-
-        Start-Process -FilePath $exec_path -ArgumentList "$launchargs" -NoNewWindow -Wait -ErrorAction Stop -PassThru
-        
-        Write-Console  "App <green>$id</green> installation process finished: <blue>$LASTEXITCODE</blue>"
-    }
-    catch {
-        Write-Console "<red>App $id installation process failed:`n$($_.Exception)</red>"
-    }
+    return (Start-Process -FilePath $process_path -ArgumentList $launchargs -NoNewWindow -Wait -PassThru)
 }
 
 #endregion
 
-#region Helper functions
+#region Helpers
 
-function Get-Login {
-    param(
-        [Parameter(Position = 0)]
-        [string]$login,
-        [Parameter(Position = 1)]
-        [string]$password,
-        [Parameter(Position = 2)]
-        [string]$steamguard
-    )
-    $creds = '+login'
-
-    if (!$login) {
-        return $creds + ' anonymous'
-    }
-
-    $creds += " $login $password"
-    
-    if ($steamguard) {
-        $creds += " $steamguard"
-    }
-    
-    return $creds
-}
-
-function Get-OsRelease {
-    if ($IsWindows) {
-        return [OSVer]::WINDOWS
-    }
-
-    if ($IsMacOS) {
-        return [OSVer]::MACOS
-    }
-
-    $os_release = Get-Content -Path '/etc/os-release' -ErrorAction SilentlyContinue
-
-    if (!$os_release) {
-        return [OSVer]::NOT_SUPPORTED
-    }
-
-    $name = $os_release[0]
-
-    if ($name -like '*ubuntu*') {
-        return [OSVer]::DEBIAN_UBUNTU
-    }
-
-    if ($name -like '*redhat*' -or $name -like '*centos*') {
-        return [OSVer]::REDHAT_CENTOS
-    }
-
-    if ($name -like '*arch*') {
-        return [OSVer]::ARCH
-    }
-
-    return [OSVer]::NOT_SUPPORTED
-}
-
-function Get-Distro {
+function Install-Dependencies {
     $os_release = Get-Content -Path '/etc/os-release'
 
-    if ($os_release) {
-        $name = $os_release[0]
+    $os_name = $os_release[0]
 
-        if (($name -like '*ubuntu*') -or ($name -like '*debian*')) {
-            return 'UBUNTU'
-        }
-
-        if (($name -like '*redhat*') -or ($name -like '*centos*')) {
-            return 'CENTOS'
-        }
-
-        if ($name -like '*arch*') {
-            return 'ARCH'
-        }
+    if ($os_name -like '*ubuntu*') {
+        &sudo apt-get install lib32gcc1
+    } elseif ($os_name -like '*redhat*' -or $os_name -like '*centos*') {
+        &yum install glibc libstdc++
+    } elseif ($os_name -like '*arch*') {
+        &yum install glibc.i686 libstdc++.i686
     }
-
-    return $null
 }
 
-function Get-Banner {
+function Get-AuthInfo {
     param(
-        [string]$scriptname
+        [string]$username,
+        [string]$userpass,
+        [string]$steamgrd
     )
 
-    $ascii_art_generator_link_base = "http://artii.herokuapp.com/make?text="
+    $arguments = '+login'
 
-    $request_link = $ascii_art_generator_link_base + $scriptname.Replace(' ', '+')
+    if (!$username) {
+        return $arguments + ' anonymous'
+    }
 
-    Invoke-WebRequest -uri $request_link | Select-Object -ExpandProperty Content | Out-String
+    $arguments += " $username $userpass"
+
+    if ($steamgrd) {
+        $arguments += " $steamgrd"
+    }
+
+    return $arguments
+}
+
+function Get-ASCIIBanner {
+    param(
+        [string]$text
+    )
+
+    $request_uri = "http://artii.herokuapp.com/make?text=$($text.Replace(' ', '+'))"
+
+    Invoke-WebRequest -Uri $request_uri | Select-Object -ExpandProperty Content | Out-String
+}
+
+function Wait-WithPrompt {
+    param (
+        [string]$msg,
+        [float]$seconds
+    )
+
+    $dt = [datetime]::Now
+    $pressed = $false
+    [int]$lastseconds = 0
+
+    while ($true) {
+        $lastseconds = ([timespan]([datetime]::Now - $dt)).TotalSeconds
+        $diff = $seconds - $lastseconds
+        if ($diff -eq 0) {
+            break
+        }
+
+        if ($Host.ui.RawUI.KeyAvailable) {
+            $pressed = $true
+            break
+        }
+
+
+        Write-Host "`r$msg ($diff s)" -NoNewline
+
+        Start-Sleep -Milliseconds 200
+    }
+
+    Write-Host "`r"
+
+    return $pressed
 }
 
 function Write-Console {
@@ -399,7 +265,7 @@ function Write-Console {
         [Parameter(Position = 0, ValueFromPipeline, Mandatory)]
         [string]$message
     )
-    
+
     $default_color = [Console]::ForegroundColor
 
     $color_regex_pattern = '(?:<([a-z]+)>((?:(?!<\/\1>).)*)<\/\1>)|((?:(?!<([a-z]+)>.*<\/\4>).)+)'
@@ -417,8 +283,7 @@ function Write-Console {
             $msg = $null
             if ($match.Groups[3].Length -gt 0) {
                 $msg = $match.Groups[3].Value
-            }
-            else {
+            } else {
                 $color = $match.Groups[1].Value
                 $msg = $match.Groups[2].Value
             }
@@ -440,64 +305,75 @@ function Write-Console {
         }
 
         [Console]::Write("`n")
-    }
-    else {
+    } else {
         [Console]::WriteLine($message)
     }
 }
 
+function Force-Resolve-Path {
+    <#
+    .SYNOPSIS
+        Calls Resolve-Path but works for files that don't exist.
+    .REMARKS
+        From http://devhawk.net/blog/2010/1/22/fixing-powershells-busted-resolve-path-cmdlet
+    #>
+    param (
+        [string] $FileName
+    )
+
+    $FileName = Resolve-Path $FileName -ErrorAction SilentlyContinue `
+        -ErrorVariable _frperror
+    if (-not($FileName)) {
+        $FileName = $_frperror[0].TargetObject
+    }
+
+    return $FileName
+}
+
 #endregion
 
+#### WELCOME SCREEN
 
+Get-ASCIIBanner -text $script_info['name']
+Write-Console "Author                         -> <magenta>$($script_info['author'])</magenta>"
+Write-Console "Version                        -> <darkyellow>$($script_info.version.major).$($script_info.version.minor).$($script_info.version.patch)</darkyellow>"
+Write-Console "Licensed under the <darkred>$($script_info['license'])</darkred> -> <blue>$($script_info['license-link'])</blue>"
+Write-Console "Repository                     -> <blue>$($script_info['repository'])</blue>"
 
+###################
 
-#############################
-###### Welcome  screen ######
-#############################
-Get-Banner -scriptname $script_name | Out-Host
-Write-Console "Author                         -> <magenta>$script_author</magenta>"
-Write-Console "Version                        -> <darkyellow>$script_version_formatted</darkyellow>"
-Write-Console "Licensed under the <darkred>$script_license_name</darkred> -> <blue>$script_license_link</blue>"
-Write-Console "Repository                     -> <blue>$script_repository</blue>"
+#### CHECKS
 
-##### Check PS version ######
 if ($PSVersionTable.PSEdition -ne 'Core') {
     Write-Warning 'This script might or might not work correctly on old PS editions. Consider updating to PowerShell Core if you are experiencing issues'
 }
 
-#### Check steamcmd path ####
+if (!$SteamcmdDir) {
+    $SteamcmdDir = Join-Path $PWD 'steamcmd'
 
-if (!$GlobalInstall -and !$InstallPath) {
-    
+    Write-Warning "Steamcmd installation path was set to default ($SteamcmdDir)"
 }
 
-if ($GlobalInstall) {
-    $InstallPath = $null
-}
-elseif (!$InstallPath) {
-    $InstallPath = $steamcmd_installpath_default
+if ($AppID -and !$AppDir) {
+    $AppDir = Join-Path $PWD "app-$AppID"
 
-    Write-Warning "Steamcmd install path was set automatically to '$InstallPath'"
+    Write-Warning "App $AppID installation path was set to default ($AppDir)"
 }
 
-### Set app installation paths ###
-if ($AppID -and !$AppInstallPath) {
-    $AppInstallPath = Join-Path -Path $PWD -ChildPath "app-$AppID"
+###################
 
-    Write-Warning "Application install path was set automatically to '$AppInstallPath'"
-}
+#### CHECK/INSTALL STEAMCMD
 
-Write-Console "<yellow>[ ] Steamcmd installation check</yellow>"
+Write-Console '<yellow>[   ] Steamcmd installation check</yellow>'
+Install-SteamCMD -installation_path $SteamcmdDir
+Write-Console '<green>[ x ] Steamcmd installed</green>'
 
-if ($GlobalInstall) {
-    Get-OsRelease | Install-Global
-}
-else {
-    Get-OsRelease | Install-Local -path $InstallPath
-}
+###################
 
-Write-Console '<green>[x] Steamcmd installed</green>'
+#### INSTALL APP
 
 if ($AppID) {
-    Install-App -id $AppID -dir $AppInstallPath -branch $Branch -branchpass $BranchPassword -login $Login -password $Password -steamguard $SteamGuard -steamcmdpath $InstallPath $Validate
+    Write-Console "<yellow>[   ] Installing app $AppID into $AppDir</yellow>"
+    $exitcode = (Install-Application -dir $AppDir -id $AppID -branch_name $BranchName -branch_pass $BranchPassword -username $Login -pass $Password -steamguard $SteamGuardCode -steamcmd_dir $SteamcmdDir -val $Validate).exitcode
+    Write-Console "<green>[ x ] App $AppID installation finished with code: $exitcode</green>"
 }
