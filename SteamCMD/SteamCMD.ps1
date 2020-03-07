@@ -1,6 +1,7 @@
 #!/usr/bin/env pwsh
 
 using namespace System
+using namespace System.Linq
 using namespace System.Text.RegularExpressions
 
 [CmdletBinding()]
@@ -32,6 +33,7 @@ param (
     [ValidateNotNullOrEmpty()]
     [Alias('cmd', 'cmddir', 'steamcmd')]
     [string]$SteamcmdDir,
+    [Alias('clean')]
     [switch]$CleanArchive,
 
     [Parameter(ParameterSetName = 'Authorized', Position = 3)]
@@ -96,7 +98,7 @@ function Install-SteamCMD {
         $steamcmd_download_link.macos
     }
 
-    $arch_name = [System.Linq.Enumerable]::Last([object[]]$dl_link.Split('/'))
+    $arch_name = [Enumerable]::Last([object[]]$dl_link.Split('/'))
 
     $arch_path = Join-Path $installation_path $arch_name
 
@@ -149,7 +151,7 @@ function Install-Application {
     )
 
     $launchargs = Get-AuthInfo -username $username -userpass $pass -steamgrd $steamguard
-    $launchargs += " +force_install_dir $((Force-Resolve-Path -FileName $dir)) +app_update $id"
+    $launchargs += " +force_install_dir $((Resolve-Path-Improved -FileName $dir)) +app_update $id"
 
     if ($branch_name) {
         $launchargs += " -beta $branch_name"
@@ -310,7 +312,7 @@ function Write-Console {
     }
 }
 
-function Force-Resolve-Path {
+function Resolve-Path-Improved {
     <#
     .SYNOPSIS
         Calls Resolve-Path but works for files that don't exist.
