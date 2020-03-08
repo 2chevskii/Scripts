@@ -345,6 +345,7 @@ function Resolve-Path-Improved {
 
 #### WELCOME SCREEN
 
+$Host.UI.RawUI.WindowTitle = $script_info['name']
 Get-ASCIIBanner -text $script_info['name']
 Write-Console "Author                         -> <magenta>$($script_info['author'])</magenta>"
 Write-Console "Version                        -> <darkyellow>$($script_info.version.major).$($script_info.version.minor).$($script_info.version.patch)</darkyellow>"
