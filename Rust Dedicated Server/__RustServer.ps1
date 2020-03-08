@@ -136,7 +136,7 @@ $script_version = @{
     patch = 0
 }
 $script_version_formatted = "v$($script_version.major).$($script_version.minor).$($script_version.patch)"
-$script_license_link = 'https://www.tldrlegal.com/l/mit'
+$script_license_link = 'file:///C:\Users\2CHEVSKII\source\repos\Automation\LICENSE'
 $script_repository = 'https://github.com/2chevskii/Scripts'
 
 Write-Host "$script_name " -NoNewline

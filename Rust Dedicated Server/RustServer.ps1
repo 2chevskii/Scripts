@@ -2,9 +2,55 @@ using namespace System
 using namespace System.Text.RegularExpressions
 using namespace System.Diagnostics.CodeAnalysis
 
+[CmdletBinding(DefaultParameterSetName = 'NIA')]
+param (
+    [Parameter(Position = 0)]
+    [ValidateNotNullOrEmpty()]
+    [Alias('p', 'path')]
+    [string]$ServerPath,
 
+    [ValidateNotNullOrEmpty()]
+    [string]$SteamCmdScriptPath = './SteamCMD.ps1',
+    [ValidateNotNullOrEmpty()]
+    [string]$SteamCmdPath = './steamcmd',
 
+    [ValidateNotNullOrEmpty()]
+    [string]$ConfigPath = './rustserver-config.json',
 
+    [Parameter(ParameterSetName = "IA")]
+    [Alias('i')]
+    [switch]$Interactive,
+
+    [Parameter(ParameterSetName = "NIA")]
+    [Alias('s')]
+    [switch]$Start,
+    [Parameter(ParameterSetName = "NIA")]
+    [Alias('a')]
+    [switch]$Autorestart,
+    [Parameter(ParameterSetName = "NIA")]
+    [Alias('u')]
+    [switch]$Update,
+    [Parameter(ParameterSetName = "NIA")]
+    [Alias('us')]
+    [switch]$UpdateServer,
+    [Parameter(ParameterSetName = "NIA")]
+    [Alias('uo')]
+    [switch]$UpdateOxide,
+    [Parameter(ParameterSetName = "NIA")]
+    [ValidateScript( { $Update -or $UpdateServer }, ErrorMessage = 'CleanUpdate option must only be specified with -Update or -UpdateServer')]
+    [Alias('c', 'clean', 'clear', 'ClearUpdate')]
+    [switch]$CleanUpdate,
+    [Parameter(ParameterSetName = "NIA")]
+    [Alias('w')]
+    [switch]$Wipe,
+
+    [ValidatePattern('(?:\w+|\w+\.\w+)\s*=.+', ErrorMessage = "Config values must be provided in 'key=value' format")]
+    [Alias('config')]
+    [string[]]$ConfigValues,
+    [ValidatePattern('(?:\w+|\w+\.\w+)\s*=.+', ErrorMessage = "Config values must be provided in 'key=value' format")]
+    [Alias('servercfg')]
+    [string[]]$ServerCfgValues
+)
 
 #region Fields
 
@@ -32,9 +78,90 @@ $constants = @{
     managed_path       = 'RustDedicated_Data/Managed'
 }
 
+[Configuration]$configuration
+
 #endregion
 
 #region Helpers
+
+function Update-ConfigurationValues {
+    param(
+        [string[]]$new_values
+    )
+
+    Write-Console "<yellow>Updating configuration with new values:</yellow>`n$(Join-String -Separator ', ' -SingleQuote -InputObject $new_values)"
+
+    $new_values_table = ($new_values | ConvertFrom-CommandLineArgs)
+
+    [string[]]$props = [Configuration].GetProperties() | Select-Object -ExpandProperty Name
+
+    $updatedprops = 0
+
+    foreach ($key in $new_values_table.Keys) {
+        if ($props.Contains($key)) {
+            $configuration.$key = $new_values_table[$key]
+            Write-Console "Updated property $key"
+            $updatedprops++
+        } else {
+            Write-Console "<yellow>This property does not belong to script configuration: $key</yellow>"
+        }
+    }
+
+    if ($updatedprops -gt 0) {
+        Write-Console "<green>Total properties updated: $updatedprops</green>"
+        Save-Configuration
+    } else {
+        Write-Console '<yellow>No configuration properties were updated</yellow>'
+    }
+}
+
+function Load-Configuration {
+    [SuppressMessageAttribute('PSUseApprovedVerbs' , '')]
+    param()
+
+    if (!(Test-Path -Path $ConfigPath)) {
+        Write-Console 'No configuration file found!'
+
+        Load-DefaultConfiguration
+    } else {
+        try {
+            Write-Console "<yellow>Loading configuration from file $ConfigPath</yellow>"
+
+            $configuration = [Configuration](Get-Content -Path $ConfigPath -Raw | ConvertFrom-Json)
+
+            Write-Console '<green>Configuration loaded!</green>'
+        } catch {
+            Write-Console "Failed to load configuration from file:`n$_"
+            Load-DefaultConfiguration
+        }
+    }
+}
+
+function Load-DefaultConfiguration {
+    [SuppressMessageAttribute('PSUseApprovedVerbs' , '')]
+    param()
+
+    Write-Console '<yellow>Loading default configuration...</yellow>'
+
+    $configuration = [Configuration]::new()
+
+    Write-Console '<green>Default configuration loaded!<green>'
+
+    Save-Configuration
+}
+
+function Save-Configuration {
+
+    Write-Console "<yellow>Saving configuration file at $ConfigPath</yellow>"
+
+    try {
+        $configuration | ConvertTo-Json | Out-File -FilePath $path -Encoding utf8 -Force
+
+        Write-Console '<green>Configuration saved</green>'
+    } catch {
+        Write-Console "<red>Failed to write configuration file:`n$_</red>"
+    }
+}
 
 function Wait-WithPrompt {
     [SuppressMessageAttribute('PsAvoidUsingWriteHost', '')]
@@ -195,10 +322,112 @@ function Test-NeedOxideUpdate {
     return $false
 }
 
+# Converts hashtable to string formatted as '+key value +key value ...'
+function ConvertTo-LaunchArgs {
+    [CmdletBinding()]
+    param(
+        [Parameter(ValueFromPipeline)]
+        [hashtable]$arguments
+    )
+
+    $strArgs = ''
+
+    for ($i = 0; $i -lt $arguments.Count; $i++) {
+        $k = ([object[]]$arguments.Keys)[$i]
+        $v = ([object[]]$arguments.Values)[$i]
+
+        if ($v.GetType() -eq [string] -and $v.Contains(' ')) {
+            $v = "`"$v`""
+        } elseif ($v.GetType() -eq [bool]) {
+            $v = $v.tostring().tolower()
+        }
+
+        $strArgs += "+$k $v"
+
+        if ($i -lt $arguments.Count - 1) {
+            $strArgs += ' '
+        }
+    }
+
+    return $strArgs
+}
+
+# Converts line formatted as 'key=value, key=value ...' to a hashtable
+function ConvertFrom-CommandLineArgs {
+    [CmdletBinding()]
+    param (
+        [Parameter(ValueFromPipeline)]
+        [string[]]$arguments
+    )
+
+    $tbl = @{ }
+
+    foreach ($arg in $arguments) {
+        $index = $arg.indexof('=')
+
+        if ($index -eq -1) {
+            Write-Warning "Unrecognized argument: $arg"
+            continue
+        }
+
+        $k = $arg.substring(0, $index).trim()
+        $v = $arg.substring($index + 1).trim(@(' ', '"', "'"))
+
+
+        $tbl[$k] = $v
+    }
+
+    return $tbl
+}
 
 #endregion
 
 #region Core
+
+class Configuration {
+    ## Server identity folder (<server-location>/server/<identity>)
+    [string]$identity = 'example-identity'
+    [string]$logfile = 'logs/example-identity.log'
+
+    ## Server information ######################
+    [string]$hostname = 'Example rust server hostname'
+    [string]$description = 'Example rust server description'
+    ## Server webpage
+    [string]$server_url = 'https://example.url'
+    ## Server preview image
+    [string]$header_url = 'https://example.url'
+    ############################################
+
+    ## Network parameters ######################
+    ## Change only if you have multiple ip addresses leading to the server machine AND YOU KNOW WHAT YOU ARE DOING, otherwise just leave default
+    [ValidatePattern('\b(?:(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])\.){3}(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])\b')]
+    [string]$server_ip = '0.0.0.0'
+    [ValidateRange(0, 65535)]
+    [int]$server_port = 28015
+    ############################################
+
+    ## Rcon settings ######################
+    ## Change only if you have multiple ip addresses leading to the server machine AND YOU KNOW WHAT YOU ARE DOING, otherwise just leave default
+    [ValidatePattern('\b(?:(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])\.){3}(?:25[0-5]|2[0-4][0-9]|1?[0-9]?[0-9])\b')]
+    [string]$rcon_ip = '0.0.0.0'
+    [ValidateRange(0, 65535)]
+    [int]$rcon_port = 28016
+    [string]$rcon_password = 'changeme'
+    #######################################
+
+    ## Gameplay settings ######################
+    [bool]$globalchat = $true
+    [bool]$pve = $false
+    [bool]$radiation = $true
+
+    [ValidateSet('Procedural Map', 'Barren', 'CraggyIsland', 'HapisIsland', 'SavasIsland_koth')]
+    [string]$map = 'Procedural Map'
+    [ValidateRange(1000, 6000)]
+    [int]$worldsize = 4000
+    [long]$seed = 1942
+    [int]$maxplayers = 1337
+    ###########################################
+}
 
 function Update-Server {
     param (
@@ -292,9 +521,7 @@ function Wipe-Server {
 
     Write-Console "<yellow>Wiping server $folder_path</yellow>"
 
-    $file_list = Get-ChildItem -Path $folder_path | Where-Object {
-        return ($_.Name -like 'player.*.db') -or ($_.Name -like '*.map') -or ($_.Name -like '*.sav')
-    }
+    $file_list = Get-ChildItem -Path $folder_path | Where-Object { ($_.Name -like 'player.*.db') -or ($_.Name -like '*.map') -or ($_.Name -like '*.sav') }
 
     foreach ($file in $file_list) {
         try {
@@ -309,10 +536,61 @@ function Wipe-Server {
     Write-Console '<green>Wipe finished</green>'
 }
 
+function Start-Server {
+    param (
+        [Configuration]$config,
+        [string]$dir,
+        [bool]$autorestart
+    )
+
+    $executable_name = $IsWindows ? 'RustDedicated.exe' : 'RustDedicated'
+
+    $launchargs = "-batchmode -nographics -logfile $($config.logfile) " + (@{
+            'server.identity'    = $config.identity
+            'server.hostname'    = $config.hostname
+            'server.description' = $config.description
+            'server.url'         = $config.server_url
+            'server.headerimage' = $config.header_url
+            'server.port'        = $config.server_port
+            'rcon.ip'            = $config.rcon_ip
+            'rcon.port'          = $config.rcon_port
+            'rcon.password'      = $config.rcon_password
+            'server.globalchat'  = $config.globalchat
+            'server.pve'         = $config.pve
+            'server.radiation'   = $config.radiation
+            'server.level'       = $config.map
+            'server.worldsize'   = $config.worldsize
+            'server.seed'        = $config.seed
+            'server.maxplayers'  = $config.maxplayers
+        } | ConvertTo-LaunchArgs)
+
+    Write-Console "<yellow>Starting server $($config.identity) in $executable_path</yellow>"
+    Write-Console "Startup arguments: $launchargs"
+
+    if (!(Test-Path $config.logfile)) {
+        New-Item $config.logfile
+    }
+
+    if ($IsWindows) {
+        Start-Process -FilePath 'cmd.exe' -ArgumentList "/C RustDedicated.exe `"$launchargs`"" -WorkingDirectory $dir -Wait
+    } else {
+        Start-Process -FilePath (Join-Path -Path $dir -ChildPath 'RustDedicated') -WorkingDirectory $dir -ArgumentList $launchargs -NoNewWindow -Wait
+    }
+
+    if (!$autorestart -or (Wait-WithPrompt -msg 'Restarting server, press any key to cancel' -seconds 5)) {
+        Write-Console '<green>Server stopped</green>'
+        return
+    }
+
+    Write-Console '<yellow>Restarting server...</yellow>'
+    Start-Server $config $dir $autorestart
+}
+
 #endregion
 
 #### WELCOME SCREEN
 
+$Host.UI.RawUI.WindowTitle = $script_info['name']
 Get-ASCIIBanner -text $script_info['name']
 Write-Console "Author                         -> <magenta>$($script_info['author'])</magenta>"
 Write-Console "Version                        -> <darkyellow>$($script_info.version.major).$($script_info.version.minor).$($script_info.version.patch)</darkyellow>"
