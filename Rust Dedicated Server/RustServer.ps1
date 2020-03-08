@@ -36,8 +36,41 @@ $constants = @{
 
 #region Helpers
 
+function Wait-WithPrompt {
+    [SuppressMessageAttribute('PsAvoidUsingWriteHost', '')]
+    param (
+        [string]$msg,
+        [float]$seconds
+    )
+
+    $dt = [datetime]::Now
+    $pressed = $false
+    [int]$lastseconds = 0
+
+    while ($true) {
+        $lastseconds = ([timespan]([datetime]::Now - $dt)).TotalSeconds
+        $diff = $seconds - $lastseconds
+        if ($diff -eq 0) {
+            break
+        }
+
+        if ($Host.ui.RawUI.KeyAvailable) {
+            $pressed = $true
+            break
+        }
+
+        [Console]::Write("`r$msg ($diff s)")
+
+        Start-Sleep -Milliseconds 200
+    }
+
+    [Console]::WriteLine("`r")
+
+    return $pressed
+}
+
 function Write-Console {
-    [SuppressMessageAttribute("PsAvoidUsingWriteHost", "")]
+    [SuppressMessageAttribute('PsAvoidUsingWriteHost', '')]
     param(
         [Alias('m', 'msg', 'text')]
         [Parameter(Position = 0, ValueFromPipeline, Mandatory)]
@@ -165,7 +198,8 @@ function Test-NeedOxideUpdate {
 
 #endregion
 
-#
+#region Core
+
 function Update-Server {
     param (
         [string]$dir,
@@ -175,19 +209,19 @@ function Update-Server {
     )
 
     try {
-        Write-Console '[---] Preparing for Rust server update'
+        Write-Console '<yellow>[---] Preparing for Rust server update</yellow>'
 
         if ($clear) {
-            Write-Console '[---] Cleaning up old files in the Managed directory'
+            Write-Console '<yellow>[---] Cleaning up old files in the Managed directory</yellow>'
             Remove-Item -Path "$(Join-Path -Path $dir -ChildPath $constants.managed_path)/*" -ErrorAction SilentlyContinue
             Write-Console '<darkgreen>[10%] Old files removed</darkgreen>'
         }
 
-        Write-Console "[---] Installing RustDedicatedServer into $dir"
+        Write-Console "<yellow>[---] Installing RustDedicatedServer into $dir</yellow>"
         &$cmd_script_path -i $constants.app_id -d $dir -cmd $cmd_path -clean -v
-        Write-Console "[99%] Installation finished"
+        Write-Console "<darkgreen>[99%] Installation finished</darkgreen>"
 
-        Write-Console '[ x ] Rust server updated'
+        Write-Console '<green>[ x ] Rust server updated</green>'
 
     } catch {
         Write-Console '<red>Server update failed with error:</red>'
@@ -197,8 +231,7 @@ function Update-Server {
 
 function Update-Oxide {
     param (
-        [string]$dir#,
-        #[bool]$clear # <- clean oxide archive after installation
+        [string]$dir
     )
 
     Write-Console '<yellow>[---] Preparing for Oxide update</yellow>'
@@ -238,7 +271,45 @@ function Update-Oxide {
     return $true
 }
 
+function Wipe-Server {
+    [SuppressMessageAttribute('PSUseApprovedVerbs', '')]
+    param(
+        [string]$server_path,
+        [string]$server_identity,
+        [bool]$force
+    )
 
+    if (!$force) {
+        Wait-WithPrompt -msg 'Wiping server, press any key to cancel' -seconds 5
+    }
+
+    $folder_path = Join-Path -Path $server_path -ChildPath 'server' -AdditionalChildPath $server_identity
+
+    if (!(Test-Path -Path $folder_path)) {
+        Write-Console "<yellow>No server folder found ($folder_path)</yellow>"
+        return
+    }
+
+    Write-Console "<yellow>Wiping server $folder_path</yellow>"
+
+    $file_list = Get-ChildItem -Path $folder_path | Where-Object {
+        return ($_.Name -like 'player.*.db') -or ($_.Name -like '*.map') -or ($_.Name -like '*.sav')
+    }
+
+    foreach ($file in $file_list) {
+        try {
+            Remove-Item -Path $file.FullName
+            Write-Console "<darkgreen>Deleted file '$($file.Name)'</darkgreen>"
+        } catch {
+            Write-Console "<red>Failed to delete file '$($file.Name)'! Error:</red>"
+            Write-Console "<red>$($_.Exception.Message)</red>"
+        }
+    }
+
+    Write-Console '<green>Wipe finished</green>'
+}
+
+#endregion
 
 #### WELCOME SCREEN
 
