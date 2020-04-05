@@ -57,7 +57,7 @@ $script_info = @{
     author         = '2CHEVSKII'
     version        = @{
         major = 2
-        minor = 3
+        minor = 4
         patch = 0
     }
     license        = 'MIT LICENSE'
