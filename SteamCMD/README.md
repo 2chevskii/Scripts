@@ -23,4 +23,10 @@ Script will automatically check if steamcmd is installed in specified path (defa
   - `-(Validate|v)` :: adds `-validate` to steamcmd launch args
   - `-(CleanArchive|clean)` :: automatically deletes downloaded archive after steamcmd installation
 
+## Exit codes
+
+Script provides various informational exit codes which might help you integrating it into automatization pipeline.
+
+*See: [Exit codes](exitcodes.yml)*
+
 [rust_ds_guide]: https://developer.valvesoftware.com/wiki/Rust_Dedicated_Server
