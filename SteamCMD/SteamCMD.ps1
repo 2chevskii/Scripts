@@ -162,6 +162,12 @@ function Install-Steamcmd {
         return 1112
     }
 
+    $deps_code = Install-Dependencies
+
+    if ($deps_code -ne 0) {
+        return $deps_code
+    }
+
     if ($Cleanup) {
         try {
             Write-Colorized "[<yellow>WAIT</yellow>] Cleaning up steamcmd archive ..."
@@ -178,7 +184,7 @@ function Install-Steamcmd {
 }
 
 function Install-Application {
-    Write-Colorized "[<yellow>WAIT</yellow>] Starting installation of the app <blue>$AppID</blue> ..."
+    Write-Colorized "[<yellow>WAIT</yellow>] Installing app <blue>$AppID</blue> ..."
 
     if (!$InstallDir) {
         $InstallDir = Resolve-PathNoFail "app-$AppID"
@@ -188,12 +194,81 @@ function Install-Application {
 
     Write-Colorized "[----] Installation folder: <blue>$InstallDir</blue>"
 
+    $launch_args = (Get-AuthInfo) + " +force_install_dir `"$InstallDir`"" + " +app_update $AppID"
 
+    if ($BranchName) {
+        $launch_args += " -beta `"$BranchName`""
+    }
+
+    if ($BranchPass) {
+        $launch_args += " -betapassword `"$BranchPass`""
+    }
+
+    if ($Validate) {
+        $launch_args += ' -validate'
+    }
+
+    $launch_args += ' +quit'
+
+    Write-Colorized "[<yellow>WAIT</yellow>] Launching steamcmd ..."
+
+    $current_exit_code = (Start-Process -FilePath "$env:STEAMCMD_HOME/$steamcmd_executable_name" -ArgumentList "$launch_args" -NoNewWindow -Wait -PassThru).ExitCode
+
+    $exit_code_meaning = $steamcmd_exit_codes[$current_exit_code]
+
+    if ($exit_code_meaning[0]) {
+        Write-Colorized "[<green> OK </green>] App <blue>$AppID</blue> installed successfully."
+    } else {
+        Write-Colorized "[<red>FAIL</red>] Could not properly install app <blue>$AppID</blue>`: <red>$($exit_code_meaning[1])</red>"
+    }
+
+    return $current_exit_code
 }
 
 #endregion
 
 #region Util
+
+function Install-Dependencies {
+    if ($IsLinux) {
+        Write-Colorized "[----] Installing steamcmd dependencies ..."
+
+        $os_release = Get-Content -Path '/etc/os-release'
+
+        $os_name = $os_release[0]
+
+        if ($os_name -like '*ubuntu*') {
+            Write-Colorized "[<yellow>WAIT</yellow>] Installing lib32gcc1 ..."
+            &sudo apt-get install lib32gcc1
+        } elseif ($os_name -like '*redhat*' -or $os_name -like '*centos*') {
+            Write-Colorized "[<yellow>WAIT</yellow>] Installing glibc, libstdc++ ..."
+            &yum install glibc libstdc++
+        } elseif ($os_name -like '*arch*') {
+            Write-Colorized "[<yellow>WAIT</yellow>] Installing glibc.i686, libstdc++.i686 ..."
+            &yum install glibc.i686 libstdc++.i686
+        } else {
+            Write-Colorized "[ <green>OK</green> ] No dependencies required on this os."
+            return 0
+        }
+
+        if ($LASTEXITCODE -ne 0) {
+            Write-Colorized "[<red>FAIL</red>] Failed to install steamcmd dependencies."
+            return 1114
+        } else {
+            Write-Colorized "[ <green>OK</green> ] Steamcmd dependencies were installed successfully."
+        }
+    }
+
+    return 0
+}
+
+function Get-AuthInfo {
+    if (!$Login) {
+        return '+login anonymous'
+    }
+
+    return "+login `"$Login`"" + ($Password ? " `"$Password`"" : [string]::Empty) + ($SteamGuard ? " `"$SteamGuard`"" : [string]::Empty)
+}
 
 function Resolve-PathNoFail {
     <#
@@ -221,9 +296,7 @@ function Test-SteamcmdInstallation {
 
 #endregion
 
-
-
-
+#region Main
 
 Set-WindowTitle
 Write-ScriptInfo
@@ -254,14 +327,4 @@ Set-WindowTitle -unset
 
 exit $current_exit_code
 
-
-<#
-Exit codes:
-    Script:
-        0: SUCCESS
-        1111: FAILED_STEAMCMD_DOWNLOAD
-        1112: FAILED_STEAMCMD_EXTRACT
-        1113: FAILED_STEAMCMD_LAUNCH
-    Steamcmd:
-        *look up in the Globals region*
-#>
+#endregion
