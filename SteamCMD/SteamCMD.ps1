@@ -84,7 +84,7 @@ $steamcmd_exit_codes = @{
 
 $default_window_title = $Host.UI.RawUI.WindowTitle
 
-$steamcmd_executable_name = $IsWindows ? 'steamcmd.exe' : 'steamcmd'
+$steamcmd_executable_name = $IsWindows ? 'steamcmd.exe' : 'steamcmd.sh'
 
 $current_exit_code = 0
 
