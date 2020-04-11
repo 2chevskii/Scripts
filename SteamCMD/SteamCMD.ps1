@@ -95,7 +95,14 @@ $current_exit_code = 0
 function Write-ScriptInfo {
     $request_uri = "http://artii.herokuapp.com/make?text=$($script_info.name.Replace(' ', '+'))"
 
-    Invoke-WebRequest -Uri $request_uri | Select-Object -ExpandProperty Content | Out-String
+    try {
+        $ProgressPreference = 'SilentlyContinue'
+        Invoke-WebRequest -Uri $request_uri | Select-Object -ExpandProperty Content | Out-String
+    } catch {
+        Write-Colorized $script_info.name
+    } finally {
+        $ProgressPreference = 'Continue'
+    }
 
     Write-Colorized "Author                         -> <magenta>$($script_info['author'])</magenta>"
     Write-Colorized "Version                        -> <darkyellow>$($script_info.version.major).$($script_info.version.minor).$($script_info.version.patch)</darkyellow>"
