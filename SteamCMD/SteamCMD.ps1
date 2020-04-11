@@ -137,11 +137,12 @@ function Install-Steamcmd {
             Write-Colorized "[----] Download path: <blue>$download_path</blue>"
             $ProgressPreference = 'SilentlyContinue'
             Invoke-WebRequest -Uri $link -OutFile $download_path
-            $ProgressPreference = 'Continue'
             Write-Colorized "[<green> OK </green>] Steamcmd downloaded."
         } catch {
             Write-Colorized "[<red>FAIL</red>] Could not download steamcmd: <red>$_</red>"
             return 1111
+        } finally {
+            $ProgressPreference = 'Continue'
         }
     }
 
