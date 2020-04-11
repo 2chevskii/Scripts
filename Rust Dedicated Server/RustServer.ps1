@@ -20,7 +20,7 @@ param (
     [switch]$Clean,
 
     [Parameter(ParameterSetName = 'NonInteractive')]
-    [string[]]$Settings,
+    [string[]]$ScriptSettings,
 
     [Parameter(ParameterSetName = 'NonInteractive')]
     [string[]]$ServerConfig,
@@ -72,7 +72,7 @@ class Settings {
     }
 }
 
-[Settings]$settings
+[Settings]$settings = [Settings]::new()
 
 $appID = 258550
 
@@ -83,7 +83,62 @@ $umod_dl = @{ # this is a lie - actually its oxide download links :-P might be c
 
 $umod_api_link = 'https://umod.org/games/rust.json'
 
+$umod_game_lib_name = 'Oxide.Rust.dll' # will be changed in the future with umod release
+
+function Install-UMod {
+    Write-Colorized "[----] Preparing to update uMod ..."
+
+    if ($IsWindows) {
+        # this is just a temp solution for now. oxide/umod builds might be united again
+        $download_link = $umod_dl.master
+    } elseif ($IsLinux) {
+        $download_link = $umod_dl.develop
+    } else {
+        throw 'Your platform is unsupported.'
+    }
+
+    $managed_folder_path = $settings.GetManagedFolderPath()
+    $oxide_rust_path = Resolve-PathNoFail -Destination (Join-Path $managed_folder_path $umod_game_lib_name)
+
+    $lib_exists = Test-Path $oxide_rust_path
+
+    if (!$lib_exists) {
+        Write-Colorized "[<red>XXXX</red>] uMod is not installed, installing now ..."
+    } elseif (!(Test-NeedOxideUpdate)) {
+        Write-Colorized "[<red>XXXX</red>] uMod is outdated, updating ..."
+    } else {
+        Write-Colorized "[ <green>OK</green> ] uMod update is unnecessary."
+        return $true
+    }
+
+    $download_path = Split-Path -Path $download_link -Leaf
+
+    Write-Colorized "[----] Download link: <blue>$download_link</blue>"
+    Write-Colorized "[----] Download path: <blue>$download_path</blue>"
+
+    try {
+        Write-Colorized "[<yellow>WAIT</yellow>] Downloading uMod archive ..."
+        $ProgressPreference = 'SilentlyContinue'
+        Invoke-WebRequest -Uri $download_link -OutFile $download_path
+        Write-Colorized "[ <green>OK</green> ] uMod build downloaded successfully."
+    } catch {
+        Write-Colorized "[<red>FAIL</red>] Could not download uMod archive: $_"
+        return $false
+    } finally {
+        $ProgressPreference = 'Continue'
+    }
+
+    
+}
+
 #region Helpers
+
+function Test-NeedOxideUpdate {
+    param (
+
+    )
+
+}
 
 function Resolve-PathNoFail {
     <#
