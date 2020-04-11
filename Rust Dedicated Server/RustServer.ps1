@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+﻿#!/usr/bin/env bash
 #requires -modules 'PSColorizer'
 
 [CmdletBinding(DefaultParameterSetName = 'Interactive')]
