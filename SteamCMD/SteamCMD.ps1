@@ -58,7 +58,7 @@ $script_info = @{
     version        = @{
         major = 3
         minor = 0
-        patch = 0
+        patch = 1
     }
     license        = 'MIT LICENSE'
     'license-link' = 'https://www.tldrlegal.com/l/mit'
@@ -95,14 +95,7 @@ $current_exit_code = 0
 function Write-ScriptInfo {
     $request_uri = "http://artii.herokuapp.com/make?text=$($script_info.name.Replace(' ', '+'))"
 
-    try {
-        $ProgressPreference = 'SilentlyContinue'
-        Invoke-WebRequest -Uri $request_uri | Select-Object -ExpandProperty Content | Out-String
-    } catch {
-        Write-Colorized $script_info.name
-    } finally {
-        $ProgressPreference = 'Continue'
-    }
+    Invoke-WebRequest -Uri $request_uri | Select-Object -ExpandProperty Content | Out-String
 
     Write-Colorized "Author                         -> <magenta>$($script_info['author'])</magenta>"
     Write-Colorized "Version                        -> <darkyellow>$($script_info.version.major).$($script_info.version.minor).$($script_info.version.patch)</darkyellow>"
@@ -144,12 +137,11 @@ function Install-Steamcmd {
             Write-Colorized "[----] Download path: <blue>$download_path</blue>"
             $ProgressPreference = 'SilentlyContinue'
             Invoke-WebRequest -Uri $link -OutFile $download_path
+            $ProgressPreference = 'Continue'
             Write-Colorized "[<green> OK </green>] Steamcmd downloaded."
         } catch {
             Write-Colorized "[<red>FAIL</red>] Could not download steamcmd: <red>$_</red>"
             return 1111
-        } finally {
-            $ProgressPreference = 'Continue'
         }
     }
 
@@ -328,6 +320,14 @@ if ($steamcmd_installed) {
 }
 
 if ($AppID -and $current_exit_code -eq 0) {
+    $current_exit_code = Install-Application
+}
+
+Set-WindowTitle -unset
+
+exit $current_exit_code
+
+#endregion
     $current_exit_code = Install-Application
 }
 
