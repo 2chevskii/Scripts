@@ -46,6 +46,12 @@ class Settings {
     [string]$rcon_port
     [string]$rcon_password
 
+    [string]$server_level
+    [string]$server_worldsize
+    [string]$server_levelurl
+
+    [string]$server_window_title
+
     [string]GetManagedFolderPath() {
         return Join-Path -Path $this.server_path -ChildPath 'RustDedicated_Data' -AdditionalChildPath 'Managed'
     }
@@ -100,6 +106,8 @@ $umod_dl = @{ # this is a lie - actually its oxide download links :-P might be c
 $umod_api_link = 'https://umod.org/games/rust.json'
 
 $umod_game_lib_name = 'Oxide.Rust.dll' # will be changed in the future with umod release
+
+$default_window_title = $Host.UI.RawUI.WindowTitle
 
 #region Core
 
@@ -194,6 +202,50 @@ function Install-Server {
 
 #region Helpers
 
+function Set-WindowTitle {
+    param (
+        $server,
+        $default
+    )
+
+    if ($server) {
+        $title = $settings.server_window_title.
+        Replace("{hostname}", $settings.server_hostname).
+        Replace("{identity}", $settings.server_identity).
+        Replace("{level}", $settings.server_level).
+        Replace("{worldsize}", $settings.server_worldsize).
+        Replace("{levelurl}", $settings.server_levelurl).
+        Replace("{ext-ip}", (Get-ExternalIP) ?? 'localhost').
+        Replace("{port}", $settings.server_port)
+    } elseif ($default) {
+        $title = $default_window_title
+    } else {
+        $title = $script_info.name
+    }
+
+    $Host.UI.RawUI.WindowTitle = $title
+}
+
+function Get-ExternalIP {
+    try {
+        return (Invoke-WebRequest -Uri 'http://icanhazip.com').Content
+    } catch {
+        Write-Colorized "[<red>FAIL</red>] Failed to get external IP address."
+        return $null
+    }
+}
+
+function Write-ScriptInfo {
+    $request_uri = "http://artii.herokuapp.com/make?text=$($script_info.name.Replace(' ', '+'))"
+
+    Invoke-WebRequest -Uri $request_uri | Select-Object -ExpandProperty Content | Out-String
+
+    Write-Colorized "Author                         -> <magenta>$($script_info['author'])</magenta>"
+    Write-Colorized "Version                        -> <darkyellow>$($script_info.version.major).$($script_info.version.minor).$($script_info.version.patch)</darkyellow>"
+    Write-Colorized "Licensed under the <darkred>$($script_info['license'])</darkred> -> <blue>$($script_info['license-link'])</blue>"
+    Write-Colorized "Repository                     -> <blue>$($script_info['repository'])</blue>"
+}
+
 function Test-NeedOxideUpdate {
     Write-Colorized "[<yellow>WAIT</yellow>] Checking currently installed uMod version ..."
     $assembly_path = Join-Path $settings.GetManagedFolderPath() $umod_game_lib_name
@@ -253,3 +305,10 @@ function Resolve-PathNoFail {
 }
 
 #endregion
+
+Set-WindowTitle
+Write-ScriptInfo
+
+Start-Sleep -seconds 2
+
+Set-WindowTitle -default
