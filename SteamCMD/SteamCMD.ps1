@@ -58,7 +58,7 @@ $script_info = @{
     version        = @{
         major = 3
         minor = 0
-        patch = 1
+        patch = 2
     }
     license        = 'MIT LICENSE'
     'license-link' = 'https://www.tldrlegal.com/l/mit'
@@ -320,14 +320,6 @@ if ($steamcmd_installed) {
 }
 
 if ($AppID -and $current_exit_code -eq 0) {
-    $current_exit_code = Install-Application
-}
-
-Set-WindowTitle -unset
-
-exit $current_exit_code
-
-#endregion
     $current_exit_code = Install-Application
 }
 
