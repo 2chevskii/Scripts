@@ -77,6 +77,19 @@ class Settings {
 
 [Settings]$settings = [Settings]::new()
 
+$script_info = @{
+    name           = 'RustServer HELPER'
+    author         = '2CHEVSKII'
+    version        = @{
+        major = 2
+        minor = 0
+        patch = 0
+    }
+    license        = 'MIT LICENSE'
+    'license-link' = 'https://www.tldrlegal.com/l/mit'
+    repository     = 'https://github.com/2chevskii/Automation'
+}
+
 $appID = 258550
 
 $umod_dl = @{ # this is a lie - actually its oxide download links :-P might be changed in the future
