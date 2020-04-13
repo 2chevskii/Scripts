@@ -1,38 +1,28 @@
 ﻿#!/usr/bin/env bash
 #requires -modules 'PSColorizer'
 
-[CmdletBinding(DefaultParameterSetName = 'Interactive')]
-param (
+using namespace System.Globalization
 
-    [Parameter(ParameterSetName = 'NonInteractive')]
+[CmdletBinding()]
+param (
     [switch]$Start,
 
-    [Parameter(ParameterSetName = 'NonInteractive')]
     [switch]$Update,
 
-    [Parameter(ParameterSetName = 'NonInteractive')]
     [switch]$UpdateServer,
 
-    [Parameter(ParameterSetName = 'NonInteractive')]
     [switch]$UpdateUmod,
 
-    [Parameter(ParameterSetName = 'NonInteractive')]
     [switch]$Force,
 
-    [Parameter(ParameterSetName = 'NonInteractive')]
     [switch]$Clean,
 
-    [Parameter(ParameterSetName = 'NonInteractive')]
-    [string[]]$ScriptSettings,
+    [string[]]$ScriptConfig,
 
-    [Parameter(ParameterSetName = 'NonInteractive')]
-    [string[]]$ServerConfig,
-
-    [Parameter(ParameterSetName = 'Interactive')]
-    [switch]$Interactive
+    [string[]]$ServerConfig
 )
 
-class Settings {
+class Configuration {
     [string]$server_path
     [string]$steamcmd_script_path
     [string]$steamcmd_installation_path
@@ -53,35 +43,35 @@ class Settings {
     [string]$server_window_title
 
     [string]GetManagedFolderPath() {
-        return Join-Path -Path $this.server_path -ChildPath 'RustDedicated_Data' -AdditionalChildPath 'Managed'
+        return Resolve-PathNoFail  (Join-Path -Path $this.server_path -ChildPath 'RustDedicated_Data' -AdditionalChildPath 'Managed')
     }
 
     [string]GetServerIdentityFolderPath() {
-        return Join-Path -Path $this.server_path -ChildPath 'server' -AdditionalChildPath $this.server_identity
+        return Resolve-PathNoFail (Join-Path -Path $this.server_path -ChildPath 'server' -AdditionalChildPath $this.server_identity)
     }
 
     [string]GetServerCfgFolderPath() {
-        return Join-Path -Path $this.GetServerIdentityFolderPath() -ChildPath 'cfg'
+        return Resolve-PathNoFail (Join-Path -Path $this.GetServerIdentityFolderPath() -ChildPath 'cfg')
     }
 
     [string]GetServerAutoFilePath() {
-        return Join-Path -Path $this.GetServerCfgFolderPath() -ChildPath 'serverauto.cfg'
+        return Resolve-PathNoFail (Join-Path -Path $this.GetServerCfgFolderPath() -ChildPath 'serverauto.cfg')
     }
 
     [string]GetServerCfgFilePath() {
-        return Join-Path -Path $this.GetServerCfgFolderPath() -ChildPath 'server.cfg'
+        return Resolve-PathNoFail (Join-Path -Path $this.GetServerCfgFolderPath() -ChildPath 'server.cfg')
     }
 
     [string]GetServerUsersFilePath() {
-        return Join-Path -Path $this.GetServerCfgFolderPath() -ChildPath 'users.cfg'
+        return Resolve-PathNoFail (Join-Path -Path $this.GetServerCfgFolderPath() -ChildPath 'users.cfg')
     }
 
     [string]GetServerBansFilePath() {
-        return Join-Path -Path $this.GetServerCfgFolderPath() -ChildPath 'bans.cfg'
+        return Resolve-PathNoFail (Join-Path -Path $this.GetServerCfgFolderPath() -ChildPath 'bans.cfg')
     }
 }
 
-[Settings]$settings = [Settings]::new()
+[Configuration]$settings = [Configuration]::new()
 
 $script_info = @{
     name           = 'RustServer HELPER'
@@ -109,103 +99,152 @@ $umod_game_lib_name = 'Oxide.Rust.dll' # will be changed in the future with umod
 
 $default_window_title = $Host.UI.RawUI.WindowTitle
 
-#region Core
-
-function Install-UMod {
-    Write-Colorized "[----] Preparing to update uMod ..."
-
-    if ($IsWindows) {
-        # this is just a temp solution for now. oxide/umod builds might be united again
-        $download_link = $umod_dl.master
-    } elseif ($IsLinux) {
-        $download_link = $umod_dl.develop
-    } else {
-        Write-Colorized "[<red>FAIL</red>] Your platform is unsupported."
-        return $false
+$serverauto_allowed_vars = @{
+    'fps.limit'                           = @{
+        type    = [System.Double]
+        default = 256
     }
-
-    $managed_folder_path = $settings.GetManagedFolderPath()
-    $oxide_rust_path = Resolve-PathNoFail -Destination (Join-Path $managed_folder_path $umod_game_lib_name)
-
-    $lib_exists = Test-Path $oxide_rust_path
-
-    if (!$lib_exists) {
-        Write-Colorized "[<red>XXXX</red>] uMod is not installed, installing now ..."
-    } elseif (Test-NeedOxideUpdate) {
-        Write-Colorized "[<red>XXXX</red>] uMod is outdated, updating ..."
-    } elseif ($Force) {
-        Write-Colorized "[<red>XXXX</red>] Force update enabled, updating ..."
-    } else {
-        Write-Colorized "[ <green>OK</green> ] uMod update is unnecessary."
-        return $true
+    'global.perf'                         = @{
+        type    = [System.Boolean]
+        default = 0
     }
-
-    $download_path = Split-Path -Path $download_link -Leaf
-
-    Write-Colorized "[----] Download link: <blue>$download_link</blue>"
-    Write-Colorized "[----] Download path: <blue>$download_path</blue>"
-
-    try {
-        Write-Colorized "[<yellow>WAIT</yellow>] Downloading uMod archive ..."
-        $ProgressPreference = 'SilentlyContinue'
-        Invoke-WebRequest -Uri $download_link -OutFile $download_path
-        Write-Colorized "[ <green>OK</green> ] uMod build downloaded successfully."
-    } catch {
-        Write-Colorized "[<red>FAIL</red>] Could not download uMod archive: <red>$_</red>"
-        return $false
-    } finally {
-        $ProgressPreference = 'Continue'
+    'server.ceilinglightgrowablerange'    = @{
+        type    = [System.Double]
+        default = 3
     }
-
-    try {
-        Write-Colorized "[<yellow>WAIT</yellow>] Extracting uMod files ..."
-        Expand-Archive -Path $download_path -DestinationPath = $settings.server_path -Force
-        Write-Colorized "[ <green>OK</green> ] Files were extracted successfully."
-    } catch {
-        Write-Colorized "[<red>FAIL</red>] Could not extract uMod files from archive: <red>$_</red>"
-        return $false
+    'server.nonplanterdeathchancepertick' = @{
+        type    = [System.Double]
+        default = 0.005
     }
-
-    Write-Colorized "[ <green>OK</green> ] uMod was successfully updated."
-    return $true
-}
-
-function Install-Server {
-    Write-Colorized "[----] Preparing for server update ..."
-    $installation_path = Resolve-PathNoFail $settings.server_path
-    $steamcmd_script_path = Resolve-PathNoFail $settings.steamcmd_script_path
-    $steamcmd_installation_path = Resolve-PathNoFail $settings.steamcmd_installation_path
-    Write-Colorized "[----] Server installation folder: <blue>$installation_path</blue>"
-    Write-Colorized "[----] SteamcmdHelper script path: <blue>$steamcmd_script_path</blue>"
-    Write-Colorized "[----] Steamcmd installation path: <blue>$steamcmd_installation_path</blue>"
-
-    if (!(Test-Path $steamcmd_script_path)) {
-        Write-Colorized "[<red>FAIL</red>] Could not find steamcmdHelper script, make sure it's located at: $steamcmd_script_path"
-        return $false
+    'server.arrowarmor'                   = @{
+        type    = [System.Boolean]
+        default = 1
     }
-
-    try {
-        Write-Colorized "[<yellow>WAIT</yellow>] Updating server files ..."
-        Start-Process -FilePath $steamcmd_script_path -ArgumentList "-AppID $appID -InstallDir $installation_path -SteamcmdDir $steamcmd_installation_path -Validate !$Force" -NoNewWindow -Wait -ErrorAction Stop -PassThru
-        if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne 7) {
-            throw "Script returned code $LASTEXITCODE."
-        }
-        Write-Colorized "[ <green>OK</green> ] Server updated successfully."
-        return $true
-    } catch {
-        Write-Colorized "[<red>FAIL</red>] Could not update server using SteamcmdHelper: <red>$_</red>"
-        return $false
+    'server.meleedamage'                  = @{
+        type    = [System.Boolean]
+        default = 1
+    }
+    'server.meleearmor'                   = @{
+        type    = [System.Boolean]
+        default = 1
+    }
+    'server.bleedingdamage'               = @{
+        type    = [System.Boolean]
+        default = 1
+    }
+    'server.bulletarmor'                  = @{
+        type    = [System.Boolean]
+        default = 1
+    }
+    'server.showholstereditems'           = @{
+        type    = [System.Boolean]
+        default = $true
+    }
+    'server.arrowdamage'                  = @{
+        type    = [System.Boolean]
+        default = 1
+    }
+    'server.sprinklereyeheightoffset'     = @{
+        type    = [System.Double]
+        default = 3
+    }
+    'server.bulletdamage'                 = @{
+        type    = [System.Boolean]
+        default = 1
+    }
+    'server.motd'                         = @{
+        type    = [System.String]
+        default = ''
+    }
+    'server.ceilinglightheightoffset'     = @{
+        type    = [System.Double]
+        default = 3
+    }
+    'server.woundingenabled'              = @{
+        type    = [System.Boolean]
+        default = $false
+    }
+    'server.playerserverfall'             = @{
+        type    = [System.Boolean]
+        default = $true
+    }
+    'server.sprinklerradius'              = @{
+        type    = [System.Double]
+        default = 3
+    }
+    'server.bleedingarmor'                = @{
+        type    = [System.Boolean]
+        default = 1
     }
 }
 
-#endregion
+
+
 
 #region Helpers
 
+function ConvertTo-Type {
+    param (
+        [type]$type,
+        [string]$value
+    )
+
+    switch ($type) {
+        [bool] {
+            if ($value -eq '0') {
+                return $false
+            } elseif ($value -eq '1') {
+                return $true
+            } elseif ($value -like 't*') {
+                return $true
+            } elseif ($Value -like 'f*') {
+                return $false
+            }
+        }
+        [double] {
+            if ([double]::TryParse($value.Replace(',', '.'), [NumberStyles]::Number, [cultureinfo]::InvariantCulture, [ref]$double)) {
+                return $double
+            }
+        }
+        [string] {
+            return $value
+        }
+        Default {
+            throw "Unknown type '$type'"
+        }
+    }
+
+    throw "Cannot convert string '$value' to the type of '$type'"
+}
+
+function Remove-Quotes {
+    param (
+        [string]$string
+    )
+
+    function Test-String {
+        param (
+            [string]$testChar
+        )
+
+        return $string.StartsWith($testChar) -and $string.EndsWith($testChar)
+    }
+
+    if (Test-string -testChar '"') {
+        return $string.Trim('"')
+    }
+
+    if (Test-String -testChar "'") {
+        return $string.Trim("'")
+    }
+
+    return $string
+}
+
 function Set-WindowTitle {
     param (
-        $server,
-        $default
+        [switch]$server,
+        [switch]$default
     )
 
     if ($server) {
@@ -309,6 +348,113 @@ function Resolve-PathNoFail {
 Set-WindowTitle
 Write-ScriptInfo
 
-Start-Sleep -seconds 2
+if ($Update) {
+    $UpdateServer = $true
+    $UpdateUmod = $true
+}
+
+if (!$Start -and !$UpdateServer -and !$UpdateUmod) {
+    ## interactive mode
+} else {
+
+}
 
 Set-WindowTitle -default
+
+
+
+
+
+
+
+
+# #region Core
+
+# function Install-UMod {
+#     Write-Colorized "[----] Preparing to update uMod ..."
+
+#     if ($IsWindows) {
+#         # this is just a temp solution for now. oxide/umod builds might be united again
+#         $download_link = $umod_dl.master
+#     } elseif ($IsLinux) {
+#         $download_link = $umod_dl.develop
+#     } else {
+#         Write-Colorized "[<red>FAIL</red>] Your platform is unsupported."
+#         return $false
+#     }
+
+#     $managed_folder_path = $settings.GetManagedFolderPath()
+#     $oxide_rust_path = Resolve-PathNoFail -Destination (Join-Path $managed_folder_path $umod_game_lib_name)
+
+#     $lib_exists = Test-Path $oxide_rust_path
+
+#     if (!$lib_exists) {
+#         Write-Colorized "[<red>XXXX</red>] uMod is not installed, installing now ..."
+#     } elseif (Test-NeedOxideUpdate) {
+#         Write-Colorized "[<red>XXXX</red>] uMod is outdated, updating ..."
+#     } elseif ($Force) {
+#         Write-Colorized "[<red>XXXX</red>] Force update enabled, updating ..."
+#     } else {
+#         Write-Colorized "[ <green>OK</green> ] uMod update is unnecessary."
+#         return $true
+#     }
+
+#     $download_path = Split-Path -Path $download_link -Leaf
+
+#     Write-Colorized "[----] Download link: <blue>$download_link</blue>"
+#     Write-Colorized "[----] Download path: <blue>$download_path</blue>"
+
+#     try {
+#         Write-Colorized "[<yellow>WAIT</yellow>] Downloading uMod archive ..."
+#         $ProgressPreference = 'SilentlyContinue'
+#         Invoke-WebRequest -Uri $download_link -OutFile $download_path
+#         Write-Colorized "[ <green>OK</green> ] uMod build downloaded successfully."
+#     } catch {
+#         Write-Colorized "[<red>FAIL</red>] Could not download uMod archive: <red>$_</red>"
+#         return $false
+#     } finally {
+#         $ProgressPreference = 'Continue'
+#     }
+
+#     try {
+#         Write-Colorized "[<yellow>WAIT</yellow>] Extracting uMod files ..."
+#         Expand-Archive -Path $download_path -DestinationPath = $settings.server_path -Force
+#         Write-Colorized "[ <green>OK</green> ] Files were extracted successfully."
+#     } catch {
+#         Write-Colorized "[<red>FAIL</red>] Could not extract uMod files from archive: <red>$_</red>"
+#         return $false
+#     }
+
+#     Write-Colorized "[ <green>OK</green> ] uMod was successfully updated."
+#     return $true
+# }
+
+# function Install-Server {
+#     Write-Colorized "[----] Preparing for server update ..."
+#     $installation_path = Resolve-PathNoFail $settings.server_path
+#     $steamcmd_script_path = Resolve-PathNoFail $settings.steamcmd_script_path
+#     $steamcmd_installation_path = Resolve-PathNoFail $settings.steamcmd_installation_path
+#     Write-Colorized "[----] Server installation folder: <blue>$installation_path</blue>"
+#     Write-Colorized "[----] SteamcmdHelper script path: <blue>$steamcmd_script_path</blue>"
+#     Write-Colorized "[----] Steamcmd installation path: <blue>$steamcmd_installation_path</blue>"
+
+#     if (!(Test-Path $steamcmd_script_path)) {
+#         Write-Colorized "[<red>FAIL</red>] Could not find steamcmdHelper script, make sure it's located at: $steamcmd_script_path"
+#         return $false
+#     }
+
+#     try {
+#         Write-Colorized "[<yellow>WAIT</yellow>] Updating server files ..."
+#         Start-Process -FilePath $steamcmd_script_path -ArgumentList "-AppID $appID -InstallDir $installation_path -SteamcmdDir $steamcmd_installation_path -Validate !$Force" -NoNewWindow -Wait -ErrorAction Stop -PassThru
+#         if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne 7) {
+#             throw "Script returned code $LASTEXITCODE."
+#         }
+#         Write-Colorized "[ <green>OK</green> ] Server updated successfully."
+#         return $true
+#     } catch {
+#         Write-Colorized "[<red>FAIL</red>] Could not update server using SteamcmdHelper: <red>$_</red>"
+#         return $false
+#     }
+# }
+
+# #endregion
