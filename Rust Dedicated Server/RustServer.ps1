@@ -178,7 +178,9 @@ $serverauto_allowed_vars = @{
     }
 }
 
-
+$kv_regex_pattern = @"
+^\s*(?:('|")?(?<key>[a-z._\s]+?)\1)(?:\s+('|")?(?<value>.*[^\s])\3)\s*$
+"@
 
 
 #region Helpers
@@ -190,7 +192,7 @@ function ConvertTo-Type {
     )
 
     switch ($type) {
-        [bool] {
+        ([bool]) {
             if ($value -eq '0') {
                 return $false
             } elseif ($value -eq '1') {
@@ -201,12 +203,13 @@ function ConvertTo-Type {
                 return $false
             }
         }
-        [double] {
+        ([double]) {
+            $double = 0
             if ([double]::TryParse($value.Replace(',', '.'), [NumberStyles]::Number, [cultureinfo]::InvariantCulture, [ref]$double)) {
                 return $double
             }
         }
-        [string] {
+        ([string]) {
             return $value
         }
         Default {
@@ -239,50 +242,6 @@ function Remove-Quotes {
     }
 
     return $string
-}
-
-function Set-WindowTitle {
-    param (
-        [switch]$server,
-        [switch]$default
-    )
-
-    if ($server) {
-        $title = $settings.server_window_title.
-        Replace("{hostname}", $settings.server_hostname).
-        Replace("{identity}", $settings.server_identity).
-        Replace("{level}", $settings.server_level).
-        Replace("{worldsize}", $settings.server_worldsize).
-        Replace("{levelurl}", $settings.server_levelurl).
-        Replace("{ext-ip}", (Get-ExternalIP) ?? 'localhost').
-        Replace("{port}", $settings.server_port)
-    } elseif ($default) {
-        $title = $default_window_title
-    } else {
-        $title = $script_info.name
-    }
-
-    $Host.UI.RawUI.WindowTitle = $title
-}
-
-function Get-ExternalIP {
-    try {
-        return (Invoke-WebRequest -Uri 'http://icanhazip.com').Content
-    } catch {
-        Write-Colorized "[<red>FAIL</red>] Failed to get external IP address."
-        return $null
-    }
-}
-
-function Write-ScriptInfo {
-    $request_uri = "http://artii.herokuapp.com/make?text=$($script_info.name.Replace(' ', '+'))"
-
-    Invoke-WebRequest -Uri $request_uri | Select-Object -ExpandProperty Content | Out-String
-
-    Write-Colorized "Author                         -> <magenta>$($script_info['author'])</magenta>"
-    Write-Colorized "Version                        -> <darkyellow>$($script_info.version.major).$($script_info.version.minor).$($script_info.version.patch)</darkyellow>"
-    Write-Colorized "Licensed under the <darkred>$($script_info['license'])</darkred> -> <blue>$($script_info['license-link'])</blue>"
-    Write-Colorized "Repository                     -> <blue>$($script_info['repository'])</blue>"
 }
 
 function Test-NeedOxideUpdate {
@@ -323,6 +282,15 @@ function Test-NeedOxideUpdate {
     return $false
 }
 
+function Get-ExternalIP {
+    try {
+        return (Invoke-WebRequest -Uri 'http://icanhazip.com').Content
+    } catch {
+        Write-Colorized "[<red>FAIL</red>] Failed to get external IP address."
+        return $null
+    }
+}
+
 function Resolve-PathNoFail {
     <#
     .SYNOPSIS
@@ -343,6 +311,41 @@ function Resolve-PathNoFail {
     return $Destination
 }
 
+function Write-ScriptInfo {
+    $request_uri = "http://artii.herokuapp.com/make?text=$($script_info.name.Replace(' ', '+'))"
+
+    Invoke-WebRequest -Uri $request_uri | Select-Object -ExpandProperty Content | Out-String
+
+    Write-Colorized "Author                         -> <magenta>$($script_info['author'])</magenta>"
+    Write-Colorized "Version                        -> <darkyellow>$($script_info.version.major).$($script_info.version.minor).$($script_info.version.patch)</darkyellow>"
+    Write-Colorized "Licensed under the <darkred>$($script_info['license'])</darkred> -> <blue>$($script_info['license-link'])</blue>"
+    Write-Colorized "Repository                     -> <blue>$($script_info['repository'])</blue>"
+}
+
+function Set-WindowTitle {
+    param (
+        [switch]$server,
+        [switch]$default
+    )
+
+    if ($server) {
+        $title = $settings.server_window_title.
+        Replace("{hostname}", $settings.server_hostname).
+        Replace("{identity}", $settings.server_identity).
+        Replace("{level}", $settings.server_level).
+        Replace("{worldsize}", $settings.server_worldsize).
+        Replace("{levelurl}", $settings.server_levelurl).
+        Replace("{ext-ip}", (Get-ExternalIP) ?? 'localhost').
+        Replace("{port}", $settings.server_port)
+    } elseif ($default) {
+        $title = $default_window_title
+    } else {
+        $title = $script_info.name
+    }
+
+    $Host.UI.RawUI.WindowTitle = $title
+}
+
 #endregion
 
 Set-WindowTitle
@@ -356,8 +359,10 @@ if ($Update) {
 if (!$Start -and !$UpdateServer -and !$UpdateUmod) {
     ## interactive mode
 } else {
-
+    ## non-interactive mode
 }
+
+ConvertTo-Type -type ([bool]) -value "false" | Out-Host
 
 Set-WindowTitle -default
 
